@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="common_util" />
+        <module name="cloud_course" />
+        <module name="cloud_choose" />
+        <module name="cloud_member" />
+        <module name="cloud_ranking" />
+        <module name="cloud_gateway" />
+        <module name="cloud_third_part" />
+        <module name="cloud_interaction" />
+        <module name="cloud_recommend" />
+        <module name="cloud_auth_server" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="cloud_common" target="11" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="cloud_auth_server" options="" />
+      <module name="cloud_choose" options="" />
+      <module name="cloud_common" options="" />
+      <module name="cloud_course" options="" />
+      <module name="cloud_gateway" options="" />
+      <module name="cloud_interaction" options="" />
+      <module name="cloud_member" options="" />
+      <module name="cloud_ranking" options="" />
+      <module name="cloud_third_part" options="" />
+      <module name="common_util" options="" />
+    </option>
+  </component>
+</project>

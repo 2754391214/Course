@@ -1,0 +1,121 @@
+package com.lyw.cloudCourse.consumer;
+
+
+import com.alibaba.fastjson.JSON;
+import com.lyw.commonUtil.dto.EnrollmentMessage;
+import com.lyw.cloudCourse.service.CoursesBo;
+import com.lyw.cloudCourse.service.EnrollmentCallbackService;
+import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
+import com.rabbitmq.client.Channel;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.support.AmqpHeaders;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+@Component
+@Slf4j
+public class CourseEnrollmentConsumer {
+
+    @Autowired
+    private CoursesBo coursesService;
+
+    @Autowired
+    private EnrollmentCallbackService callbackService;
+
+    /**
+     * 消费选课消息
+     */
+    @RabbitListener(queues = "enrollment.queue")
+    public void processEnrollmentMessage(EnrollmentMessage message,
+                                         Channel channel,
+                                         @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        String transactionId = message.getTransactionId();
+
+        try {
+            log.info("收到选课消息: transactionId={}, courseId={}, operation={}",
+                    transactionId, message.getCourseId(), message.getOperation());
+
+            if ("INCREMENT_ENROLLMENT".equals(message.getOperation())) {
+                // 调用课程服务增加选课人数
+                CourseResponseWrapper result = coursesService.incrementEnrollment(message.getCourseId());
+
+                if (result.isSuccess()) {
+                    log.info("课程人数增加成功: transactionId={}, courseId={}",
+                            transactionId, message.getCourseId());
+
+                    // 回调选课模块更新事务状态
+                    callbackService.notifyEnrollmentSuccess(transactionId,
+                            JSON.toJSONString(result));
+
+                    // 手动确认消息
+                    channel.basicAck(deliveryTag, false);
+
+                } else {
+                    throw new RuntimeException("课程服务返回失败: " + result.getErrorMessage());
+                }
+
+            } else if ("DECREMENT_ENROLLMENT".equals(message.getOperation())) {
+                // 退课 - 减少课程选课人数
+                CourseResponseWrapper result = coursesService.decrementEnrollment(message.getCourseId());
+
+                if (result.isSuccess()) {
+                    log.info("课程人数减少成功: transactionId={}, courseId={}",
+                            transactionId, message.getCourseId());
+
+                    callbackService.notifyEnrollmentSuccess(transactionId,
+                            JSON.toJSONString(result));
+
+                    channel.basicAck(deliveryTag, false);
+                } else {
+                    throw new RuntimeException("课程服务返回失败: " + result.getErrorMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("处理选课消息异常: transactionId={}", transactionId, e);
+
+            try {
+                // 通知选课模块处理失败
+                callbackService.notifyEnrollmentFailure(transactionId,
+                        "课程人数更新失败: " + e.getMessage());
+
+                // 拒绝消息并重新入队（重试）
+                channel.basicNack(deliveryTag, false, true);
+
+            } catch (IOException ioException) {
+                log.error("拒绝消息异常: transactionId={}", transactionId, ioException);
+            }
+        }
+    }
+
+    /**
+     * 消费死信队列消息（处理失败的消息）
+     */
+    @RabbitListener(queues = "enrollment.dlx.queue")
+    public void processDLXMessage(EnrollmentMessage message,
+                                  Channel channel,
+                                  @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        String transactionId = message.getTransactionId();
+
+        try {
+            log.warn("收到死信队列消息: transactionId={}, courseId={}",
+                    transactionId, message.getCourseId());
+
+            // 标记事务为最终失败
+            callbackService.notifyEnrollmentFailure(transactionId,
+                    "消息处理超时，进入死信队列");
+
+            // 确认死信消息
+            channel.basicAck(deliveryTag, false);
+
+            log.info("死信消息处理完成: transactionId={}", transactionId);
+
+        } catch (Exception e) {
+            log.error("处理死信消息异常: transactionId={}", transactionId, e);
+        }
+    }
+}

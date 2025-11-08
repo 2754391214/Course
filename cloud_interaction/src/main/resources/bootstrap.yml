@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: cloudInteraction
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: 110.42.233.169:8848
+      discovery:
+        namespace: c58de7de-e64d-4489-ad9f-37b83ad18b4c
+        username: lyw
+        password: li1590754492@
+      config:
+        file-extension: yaml
+        namespace: c58de7de-e64d-4489-ad9f-37b83ad18b4c
+        username: lyw
+        password: li1590754492@

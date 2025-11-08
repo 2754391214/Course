@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lyw.cloudInteraction.mapper.InteractionsDao">
+
+
+    <insert id="saveInteraction">
+        INSERT INTO interactions (user_id, target_type, target_id, interaction_type, metadata, cru, crd, luu, lud)
+        VALUES (#{userId}, #{targetType}, #{targetId}, #{favorite}, #{metadataJson}, #{cru}, NOW(3), #{luu}, NOW(3))
+            ON DUPLICATE KEY UPDATE
+                                 metadata = VALUES(metadata),
+                                 luu = VALUES(luu),
+                                 lud = VALUES(lud)
+    </insert>
+    <delete id="removeInteraction">
+        DELETE FROM interactions
+        WHERE user_id = #{userId}
+          AND target_type = #{targetType}
+          AND target_id = #{targetId}
+          AND interaction_type = #{favorite}
+    </delete>
+    <select id="getReviewLikeCounts" resultType="com.lyw.cloudInteraction.vo.InteractionsVo">
+        SELECT target_id, COUNT(*) as likeCount
+        FROM interactions
+        WHERE target_type = 'review' AND interaction_type = 'like' GROUP BY target_id
+    </select>
+    <select id="getReviewUsefulCounts" resultType="com.lyw.cloudInteraction.vo.InteractionsVo">
+        SELECT target_id, COUNT(*) as usefulCount
+        FROM interactions
+        WHERE target_type = 'review' AND interaction_type = 'useful' GROUP BY target_id
+    </select>
+    <select id="getReplyLikeCounts" resultType="com.lyw.cloudInteraction.vo.InteractionsVo">
+        SELECT target_id, COUNT(*) as likeCount
+        FROM interactions
+        WHERE target_type = 'reply' AND interaction_type = 'like' GROUP BY target_id
+    </select>
+
+</mapper>

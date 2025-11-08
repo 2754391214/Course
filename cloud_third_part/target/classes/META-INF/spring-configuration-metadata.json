@@ -1,0 +1,67 @@
+{
+  "groups": [
+    {
+      "name": "aliyun.oss",
+      "type": "com.lyw.cloudThirdPart.utils.AliOSSUtils",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "spring.alicloud",
+      "type": "com.lyw.cloudThirdPart.utils.SmsUtils",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    }
+  ],
+  "properties": [
+    {
+      "name": "aliyun.oss.access-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "aliyun.oss.access-key-secret",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "aliyun.oss.bucket-name",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "aliyun.oss.endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "aliyun.oss.endpoints",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.AliOSSUtils"
+    },
+    {
+      "name": "spring.alicloud.access-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "spring.alicloud.region-id",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "spring.alicloud.secret",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "spring.alicloud.sign-name",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "spring.alicloud.template-code",
+      "type": "java.lang.String",
+      "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    }
+  ],
+  "hints": []
+}

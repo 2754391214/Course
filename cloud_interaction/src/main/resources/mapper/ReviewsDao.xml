@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lyw.cloudInteraction.mapper.ReviewsDao">
+
+
+    <update id="incrementLikeCount">
+        UPDATE reviews SET like_count = like_count + 1 WHERE id = #{reviewId}
+    </update>
+    <update id="decrementLikeCount">
+        UPDATE reviews SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{reviewId}
+    </update>
+    <update id="incrementUsefulCount">
+        UPDATE reviews SET useful_count = useful_count + 1 WHERE id = #{reviewId}
+    </update>
+    <update id="decrementUsefulCount">
+        UPDATE reviews SET useful_count = GREATEST(useful_count - 1, 0) WHERE id = #{reviewId}
+    </update>
+    <update id="updateLikeCount">
+        UPDATE reviews SET like_count = #{count} WHERE id = #{reviewId}
+    </update>
+    <update id="updateUsefulCount">
+        UPDATE reviews SET useful_count = #{count} WHERE id = #{reviewId}
+    </update>
+    <update id="incrementReplyCount">
+        UPDATE reviews SET reply_count = reply_count + 1 WHERE id = #{reviewId}
+    </update>
+    <update id="decrementReplyCount">
+        UPDATE reviews SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = #{reviewId}
+    </update>
+    <select id="selectReviewStatistics" resultType="com.lyw.cloudInteraction.vo.ReviewsVo">
+        SELECT
+            COUNT(*) as totalReviews,
+            AVG(overall_rating) as averageRating,
+            ROUND(SUM(CASE WHEN is_recommended = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as recommendRate
+        FROM reviews
+        WHERE course_id = #{courseId} AND status = 'approved'
+    </select>
+    <select id="selectRatingDistribution" resultType="com.lyw.cloudInteraction.vo.ReviewsVo">
+        SELECT
+            overall_rating as rating,
+            COUNT(*) as count,
+            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reviews WHERE course_id = #{courseId} AND status = 'approved'), 2) as percentage
+            FROM reviews
+            WHERE course_id = #{courseId} AND status = 'approved'
+            GROUP BY overall_rating
+            ORDER BY overall_rating DESC
+    </select>
+    <select id="selectTagStatistics" resultType="com.lyw.cloudInteraction.vo.ReviewsVo">
+        SELECT
+            tag,
+            COUNT(*) as count
+            FROM (
+               SELECT JSON_UNQUOTE(JSON_EXTRACT(review_tags, CONCAT('$[', numbers.n, ']'))) as tag
+               FROM reviews
+               JOIN (SELECT 0 as n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) numbers
+               WHERE course_id = #{courseId} AND status = 'approved' AND JSON_LENGTH(review_tags) > numbers.n
+            ) as tags
+            WHERE tag IS NOT NULL AND tag != ''
+            GROUP BY tag
+            ORDER BY count DESC
+            LIMIT 10
+    </select>
+</mapper>

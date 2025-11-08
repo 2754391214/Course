@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lyw.cloudChoose.mapper.EnrollmentBlacklistDao">
+
+
+    <select id="selectByStudentAndCourse" resultType="com.lyw.cloudChoose.vo.EnrollmentBlacklistVo">
+        SELECT * FROM enrollment_blacklist
+        WHERE student_id = #{studentId}
+        AND status = 'ACTIVE'
+        AND (course_id IS NULL OR course_id = #{courseId})
+        AND (start_time IS NULL OR start_time <![CDATA[ <= ]]> NOW())
+        AND (end_time IS NULL OR end_time <![CDATA[ >= ]]> NOW())
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectByStudentId" resultType="com.lyw.cloudChoose.vo.EnrollmentBlacklistVo">
+        SELECT * FROM enrollment_blacklist
+        WHERE student_id = #{studentId}
+        AND course_id IS NULL
+        AND status = 'ACTIVE'
+        AND (start_time IS NULL OR start_time <![CDATA[ <= ]]> NOW())
+        AND (end_time IS NULL OR end_time <![CDATA[ >= ]]> NOW())
+        LIMIT 1
+    </select>
+
+
+</mapper>

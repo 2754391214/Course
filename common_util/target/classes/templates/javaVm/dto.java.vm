@@ -1,0 +1,72 @@
+package ${package.Other};
+
+import com.lyw.commonUtil.dto.BaseDto;
+#if(${swagger})
+import io.swagger.annotations.ApiModelProperty;
+#end
+import java.util.Date;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.fasterxml.jackson.annotation.JsonFormat;
+#if(${entityLombokModel})
+import lombok.Data;
+    #if(${chainModel})
+import lombok.experimental.Accessors;
+    #end
+#end
+
+/**
+ * <p>
+ * $!{table.comment}
+ * </p>
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+#if(${entityLombokModel})
+@Data
+    #if(${chainModel})
+@Accessors(chain = true)
+    #end
+#end
+#if(${table.convert})
+#end
+#if(${activeRecord})
+public class ${dtoClassName} extends BaseDto {
+#elseif(${entitySerialVersionUID})
+public class ${dtoClassName} implements Serializable {
+#else
+public class ${dtoClassName} {
+#end
+#if(${entitySerialVersionUID})
+
+private static final long serialVersionUID = 1L;
+#end
+## ----------  BEGIN 字段循环遍历  ----------
+#foreach($field in ${table.fields})
+    #if($field.annotationColumnName.toLowerCase()!="cru"
+    && $field.annotationColumnName.toLowerCase()!="crd"
+    && $field.annotationColumnName.toLowerCase()!="luu"
+    && $field.annotationColumnName.toLowerCase()!="lud")
+
+        #if(${field.keyFlag})
+            #set($keyPropertyName=${field.propertyName})
+        #end
+        #if("$!field.comment" != "")
+            #if(${swagger})
+    @ApiModelProperty("${field.comment}")
+            #else
+            /**
+             * ${field.comment}
+             */
+            #end
+        #end
+        #if("${field.propertyType}"=="Date")
+    @DateTimeFormat(pattern = #if("${field.type}" == "date")"dd-MM-yyyy"#else"dd-MM-yyyy HH:mm:ss"#end)
+    @JsonFormat(pattern = #if("${field.type}" == "date")"dd/MM/yyyy"#else"dd/MM/yyyy HH:mm:ss"#end, timezone = "GMT+8")
+        #end
+    private #if("${field.propertyType}"=="Blob")String#else${field.propertyType}#end ${field.propertyName}#if("${field.type}" == "char(1)") = "N"#end;
+    #end
+    ## ----------  END 字段循环遍历  ----------
+#end
+
+}
