@@ -5,6 +5,9 @@ target/
 .vscode/
 bin/
 out/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
 # ignore these files
 .classpath

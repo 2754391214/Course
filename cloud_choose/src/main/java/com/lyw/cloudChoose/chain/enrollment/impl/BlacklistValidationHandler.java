@@ -30,20 +30,15 @@ public class BlacklistValidationHandler extends EnrollmentAbstractValidationHand
         log.info("检查学生是否在黑名单中: studentId={}", request.getStudentId());
 
         // 检查学生是否在黑名单中
-        EnrollmentBlacklistVo blacklist = enrollmentBlacklistDao.selectByStudentId(request.getStudentId());
-        if (ObjectUtil.isNotEmpty(blacklist)) {
-            String reason = String.format("学生处于黑名单中，禁止选课。原因: %s", blacklist.getReason());
-            log.warn("黑名单检查失败: studentId={}, reason={}", request.getStudentId(), blacklist.getReason());
-            return ValidationResult.failed(reason);
-        }
+        EnrollmentBlacklistVo blacklistVo = enrollmentBlacklistDao.selectByStudentId(request.getStudentId());
+        if (ObjectUtil.isNotEmpty(blacklistVo)) {
 
-        // 检查课程是否在黑名单中（针对特定学生）
-        EnrollmentBlacklistVo courseBlacklist = enrollmentBlacklistDao.selectByStudentAndCourse(
-                request.getStudentId(), request.getCourseId());
-        if (ObjectUtil.isNotEmpty(courseBlacklist)) {
-            String reason = String.format("该课程对您受限，禁止选课。原因: %s", courseBlacklist.getReason());
+            String reason = ObjectUtil.isEmpty(blacklistVo.getCourseId())?
+                    String.format("学生处于黑名单中，禁止选课。原因: %s", blacklistVo.getReason()):
+                    String.format("该课程对您受限，禁止选课。原因: %s", blacklistVo.getReason());
+
             log.warn("课程黑名单检查失败: studentId={}, courseId={}, reason={}",
-                    request.getStudentId(), request.getCourseId(), courseBlacklist.getReason());
+                    request.getStudentId(), request.getCourseId(), blacklistVo.getReason());
             return ValidationResult.failed(reason);
         }
 
