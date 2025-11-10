@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient("cloudMember")
 public interface MemberFeignService {
-    @PostMapping("/user/regist")
+    @PostMapping("/user/register")
     CourseResponseWrapper register(@RequestBody UserRegisterDto dto);
     @PostMapping("/user/login")
     CourseResponseWrapper login(@RequestBody UserLoginDto dto);

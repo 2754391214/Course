@@ -1,8 +1,6 @@
 package com.lyw.cloudGateway.filter;
 
-import cn.hutool.core.util.ObjectUtil;
-import com.lyw.cloudGateway.feign.AuthServerService;
-import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
+import com.lyw.cloudGateway.service.AuthWebClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -17,7 +15,6 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -26,9 +23,7 @@ import java.util.List;
 @Component
 public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
-    @Resource
-    private AuthServerService authServerService;
-
+    private final AuthWebClientService authWebClientService;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     // 不需要认证的路径
@@ -40,6 +35,10 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/thirdpart/**",
             "/api/course/public/**"
     );
+
+    public AuthGlobalFilter(AuthWebClientService authWebClientService) {
+        this.authWebClientService = authWebClientService;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -61,24 +60,24 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             return unauthorizedResponse(exchange, "缺少访问令牌");
         }
 
-        // 验证token
-        if (!authServerService.validateToken(token).isSuccess()) {
-            return unauthorizedResponse(exchange, "令牌无效或已过期");
-        }
-
-        // 获取用户ID
-        CourseResponseWrapper userIdByToken = authServerService.getUserIdByToken(token);
-        if (!userIdByToken.isSuccess()|| ObjectUtil.isEmpty(userIdByToken.getData())){
-            return unauthorizedResponse(exchange, "用户信息不存在");
-        }
-        String userId = userIdByToken.getData().toString();
-        // 将用户ID添加到header中传递给下游服务
-        ServerHttpRequest newRequest = request.mutate()
-                .header("X-User-Id", userId)
-                .header("X-User-Token", token)
-                .build();
-
-        return chain.filter(exchange.mutate().request(newRequest).build());
+        // 使用 WebClient 验证 token 并获取用户ID
+        return authWebClientService.validateToken(token)
+                .flatMap(valid -> {
+                    if (valid) {
+                        return authWebClientService.getUserIdByToken(token)
+                                .flatMap(userId -> {
+                                    // 将用户ID添加到header中传递给下游服务
+                                    ServerHttpRequest newRequest = request.mutate()
+                                            .header("X-User-Id", userId)
+                                            .header("X-User-Token", token)
+                                            .build();
+                                    return chain.filter(exchange.mutate().request(newRequest).build());
+                                })
+                                .switchIfEmpty(unauthorizedResponse(exchange, "获取用户信息失败"));
+                    } else {
+                        return unauthorizedResponse(exchange, "令牌无效或已过期");
+                    }
+                });
     }
 
     /**

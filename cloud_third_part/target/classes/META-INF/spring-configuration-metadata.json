@@ -9,6 +9,11 @@
       "name": "spring.alicloud",
       "type": "com.lyw.cloudThirdPart.utils.SmsUtils",
       "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "third-party.cost",
+      "type": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig",
+      "sourceType": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig"
     }
   ],
   "properties": [
@@ -61,6 +66,30 @@
       "name": "spring.alicloud.template-code",
       "type": "java.lang.String",
       "sourceType": "com.lyw.cloudThirdPart.utils.SmsUtils"
+    },
+    {
+      "name": "third-party.cost.alert-threshold",
+      "type": "java.lang.Double",
+      "description": "告警阈值比例（0-1）",
+      "sourceType": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig"
+    },
+    {
+      "name": "third-party.cost.daily-budget",
+      "type": "java.lang.Double",
+      "description": "每日预算限制（元）",
+      "sourceType": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig"
+    },
+    {
+      "name": "third-party.cost.default-costs",
+      "type": "java.util.Map<java.lang.String,java.lang.Double>",
+      "description": "各服务默认成本配置（元\/次）",
+      "sourceType": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig"
+    },
+    {
+      "name": "third-party.cost.services",
+      "type": "java.util.Map<java.lang.String,com.lyw.cloudThirdPart.config.ThirdPartyCostConfig$ServiceConfig>",
+      "description": "服务特定配置",
+      "sourceType": "com.lyw.cloudThirdPart.config.ThirdPartyCostConfig"
     }
   ],
   "hints": []

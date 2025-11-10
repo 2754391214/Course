@@ -35,7 +35,7 @@ public class UserVo extends BaseVo {
 
     @ApiModelProperty("用户名")
     @TableField(value = "username")
-    private String username;
+    private String userName;
 
     @ApiModelProperty("邮箱")
     @TableField(value = "email")

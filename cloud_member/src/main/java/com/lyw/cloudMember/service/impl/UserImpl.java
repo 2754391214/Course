@@ -54,18 +54,18 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
 
             // 2. 验证用户名是否已存在
             LambdaQueryWrapper<UserVo> usernameQuery = new LambdaQueryWrapper<>();
-            usernameQuery.eq(UserVo::getUsername, dto.getUsername());
+            usernameQuery.eq(UserVo::getUserName, dto.getUserName());
             if (ObjectUtil.isNotEmpty(userDao.selectOne(usernameQuery))) {
                 return CourseResponseWrapper.getFailed("用户名已存在");
             }
 
             // 3. 创建用户基础信息
             UserVo user = new UserVo();
-            user.setUsername(dto.getUsername());
+            user.setUserName(dto.getUserName());
             user.setPhone(dto.getPhone());
             user.setEmail(dto.getEmail());
             user.setNickname(StringUtils.isNotEmpty(dto.getNickname()) ?
-                    dto.getNickname() : dto.getUsername());
+                    dto.getNickname() : dto.getUserName());
             user.setAvatar(dto.getAvatar());
             user.setStatus(1); // 正常状态
             user.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
@@ -80,7 +80,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
             UserAuthVo userAuth = new UserAuthVo();
             userAuth.setUserId(user.getId());
             userAuth.setIdentityType("password"); // 密码登录方式
-            userAuth.setIdentifier(dto.getUsername()); // 使用用户名作为标识
+            userAuth.setIdentifier(dto.getUserName()); // 使用用户名作为标识
             userAuth.setCredential(AES256.encrypt(dto.getPassword())); // 加密密码
             userAuth.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
             userAuth.setCruAndLuu(CurUserUtil.getUserCode());
@@ -91,11 +91,24 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
                 userDao.deleteById(user.getId());
                 return CourseResponseWrapper.getFailed("用户认证信息创建失败");
             }
+            //如果已经有绑定phone则添加电话加密码登录验证
+            Long userAuthId = userAuth.getId();
+            if (StringUtils.isNotEmpty(dto.getPhone())){
+                userAuth.setId(null);
+                userAuth.setIdentifier(dto.getPhone()); // 使用用户名作为标识
+            }
+            authResult = userAuthDao.insert(userAuth);
+            if (authResult <= 0) {
+                // 回滚用户记录
+                userAuthDao.deleteById(userAuthId);
+                userDao.deleteById(user.getId());
+                return CourseResponseWrapper.getFailed("用户认证信息创建失败");
+            }
 
             // 5. 返回注册成功信息
             Map<String, Object> result = new HashMap<>();
             result.put("userId", user.getId());
-            result.put("username", user.getUsername());
+            result.put("username", user.getUserName());
             result.put("phone", user.getPhone());
 
             return CourseResponseWrapper.getSuccess("注册成功", result);
@@ -111,7 +124,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
         try {
             // 1. 根据用户名或手机号查询用户认证信息
             LambdaQueryWrapper<UserAuthVo> authQuery = new LambdaQueryWrapper<>();
-            authQuery.eq(UserAuthVo::getIdentifier, dto.getUsername())
+            authQuery.eq(UserAuthVo::getIdentifier, dto.getUserName())
                     .or()
                     .eq(UserAuthVo::getIdentifier, dto.getPhone())
                     .eq(UserAuthVo::getIdentityType, "password");
@@ -144,7 +157,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
             // 6. 返回用户信息
             Map<String, Object> userInfo = new HashMap<>();
             userInfo.put("id", user.getId());
-            userInfo.put("username", user.getUsername());
+            userInfo.put("username", user.getUserName());
             userInfo.put("phone", user.getPhone());
             userInfo.put("email", user.getEmail());
             userInfo.put("nickname", user.getNickname());
@@ -222,7 +235,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
                 // 返回用户信息
                 Map<String, Object> userInfo = new HashMap<>();
                 userInfo.put("id", user.getId());
-                userInfo.put("username", user.getUsername());
+                userInfo.put("username", user.getUserName());
                 userInfo.put("phone", user.getPhone());
                 userInfo.put("email", user.getEmail());
                 userInfo.put("nickname", user.getNickname());
@@ -248,9 +261,9 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
     private CourseResponseWrapper registerSocialUser(SocialUserDto dto) {
         // 1. 创建用户基础信息
         UserVo user = new UserVo();
-        user.setUsername(generateSocialUsername(dto.getSocialType()));
+        user.setUserName(generateSocialUserName(dto.getSocialType()));
         user.setNickname(StringUtils.isNotEmpty(dto.getNickname()) ?
-                dto.getNickname() : user.getUsername());
+                dto.getNickname() : user.getUserName());
         user.setAvatar(dto.getAvatar());
         user.setEmail(dto.getEmail());
         user.setStatus(1);
@@ -282,7 +295,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
         // 3. 返回用户信息
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("id", user.getId());
-        userInfo.put("username", user.getUsername());
+        userInfo.put("username", user.getUserName());
         userInfo.put("nickname", user.getNickname());
         userInfo.put("avatar", user.getAvatar());
         userInfo.put("email", user.getEmail());
@@ -294,7 +307,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
     /**
      * 生成社交用户名
      */
-    private String generateSocialUsername(String socialType) {
+    private String generateSocialUserName(String socialType) {
         return socialType.toLowerCase() + "_" + System.currentTimeMillis();
     }
 }

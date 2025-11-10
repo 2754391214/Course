@@ -49,6 +49,7 @@ public class LoginServiceImpl implements LoginService {
         String code = String.valueOf(ValidateCodeUtils.generateValidateCode(4));
         String code1 = code + "_" + System.currentTimeMillis();
         stringRedisTemplate.opsForValue().set(AuthServerConstant.SMS_CODE_CACHE_PREFIX + phone, code1, 10, TimeUnit.MINUTES);
+        log.info("{}验证码：{}",phone,code);
         thirdPartFeignService.sendCode(phone, code);
         return CourseResponseWrapper.getSuccess();
     }
