@@ -3,7 +3,7 @@ package com.lyw.cloudChoose.service.impl;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.lyw.cloudChoose.chain.ValidationResult;
+import com.lyw.cloudChoose.dto.ValidationResult;
 import com.lyw.cloudChoose.dto.CoursesDto;
 import com.lyw.cloudChoose.dto.EnrollmentsDto;
 import com.lyw.cloudChoose.factory.DropStrategyFactory;
@@ -24,11 +24,20 @@ import com.lyw.commonUtil.util.FeignResponseHelper;
 import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.RedissLockUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @Service
@@ -61,7 +70,10 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
     private HeatEventPublisher heatEventPublisher;
     @Resource
     private UserBehaviorProducerService userBehaviorProducerService;
-
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
+    @Resource
+    private Executor enrollmentExecutor;
     private void validateEnrollmentRequest(EnrollmentsDto enrollments) {
         if (ObjectUtil.isEmpty(enrollments.getStudentId())) {
             throw new IllegalArgumentException("学生ID不能为空");
@@ -83,50 +95,82 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
                 .setPrerequisiteCheck(false);
     }
 
+    // 课程信息缓存
+    private CoursesDto getCachedCourse(Long courseId) {
+        String cacheKey = "course:" + courseId;
+        try {
+            CoursesDto course = (CoursesDto) redisTemplate.opsForValue().get(cacheKey);
+            if (ObjectUtil.isEmpty(course)) {
+                course = FeignResponseHelper.convert(
+                        courseFeignService.searchDetail(courseId), CoursesDto.class);
+                if (ObjectUtil.isNotEmpty(course)) {
+                    redisTemplate.opsForValue().set(cacheKey, course, Duration.ofMinutes(10));
+                }
+            }
+            return course;
+        } catch (Exception e) {
+            log.warn("课程缓存获取失败，降级到直接查询: courseId={}", courseId, e);
+            return FeignResponseHelper.convert(
+                    courseFeignService.searchDetail(courseId), CoursesDto.class);
+        }
+    }
+    // 策略信息缓存
+    private EnrollmentStrategiesVo getCachedStrategy(Long courseId) {
+        String cacheKey = "enrollment_strategy:" + courseId;
+        try {
+            EnrollmentStrategiesVo strategy = (EnrollmentStrategiesVo) redisTemplate.opsForValue().get(cacheKey);
+            if (ObjectUtil.isEmpty(strategy)) {
+                strategy = enrollmentStrategiesDao.selectOne(
+                        new LambdaQueryWrapper<EnrollmentStrategiesVo>()
+                                .eq(EnrollmentStrategiesVo::getCourseId, courseId));
+                if (ObjectUtil.isEmpty(strategy)) {
+                    strategy = createDefaultStrategy(courseId);
+                }
+                redisTemplate.opsForValue().set(cacheKey, strategy, Duration.ofMinutes(30));
+            }
+            return strategy;
+        } catch (Exception e) {
+            log.warn("策略缓存获取失败，降级到直接查询: courseId={}", courseId, e);
+            return enrollmentStrategiesDao.selectOne(
+                    new LambdaQueryWrapper<EnrollmentStrategiesVo>()
+                            .eq(EnrollmentStrategiesVo::getCourseId, courseId));
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper enroll(EnrollmentsDto dto) {
-        String lockKey = "enrollment-lock-" + dto.getCourseId() + ":" + dto.getStudentId();
-        boolean locked = false;
+        // 基础验证
+        validateEnrollmentRequest(dto);
+
+        // 并行获取课程和策略信息
+        CompletableFuture<CoursesDto> courseFuture = CompletableFuture.supplyAsync(
+                () -> getCachedCourse(dto.getCourseId()),enrollmentExecutor);
+
+        CompletableFuture<EnrollmentStrategiesVo> strategyFuture = CompletableFuture.supplyAsync(
+                () -> getCachedStrategy(dto.getCourseId()),enrollmentExecutor);
 
         try {
-            // 1. 获取分布式锁
-            locked = redissLockUtil.tryLock(lockKey, 100L, 30000L);
-            if (!locked) {
-                return CourseResponseWrapper.getFailed("系统繁忙，请稍后重试");
-            }
 
-            // 2. 基础验证
-            validateEnrollmentRequest(dto);
-
-            // 3. 获取课程信息和策略
-            CoursesDto course = FeignResponseHelper.convert(
-                    courseFeignService.searchDetail(dto.getCourseId()), CoursesDto.class);
+            // 等待并行任务完成
+            CoursesDto course = courseFuture.get(2, TimeUnit.SECONDS);
+            EnrollmentStrategiesVo strategy = strategyFuture.get(1, TimeUnit.SECONDS);
             if (ObjectUtil.isEmpty(course)) {
                 return CourseResponseWrapper.getFailed("课程不存在");
             }
 
-            EnrollmentStrategiesVo strategy = enrollmentStrategiesDao.selectOne(
-                    new LambdaQueryWrapper<EnrollmentStrategiesVo>()
-                            .eq(EnrollmentStrategiesVo::getCourseId, dto.getCourseId()));
-            if (ObjectUtil.isEmpty(strategy)) {
-                strategy = createDefaultStrategy(dto.getCourseId());
-            }
-
-            // 4. 使用责任链进行完整验证
+            // 并行进行完整验证
             ValidationResult validationResult = enrollmentValidationService.validateEnrollment(dto, course, strategy);
             if (!validationResult.isValid()) {
                 String rejectionReasons = String.join("; ", validationResult.getRejectionReasons());
-                log.warn("选课验证失败: studentId={}, courseId={}, reasons={}",
-                        dto.getStudentId(), dto.getCourseId(), rejectionReasons);
                 return CourseResponseWrapper.getFailed(rejectionReasons);
             }
 
-            // 5. 根据策略类型执行选课逻辑
+            // 根据策略类型执行选课逻辑
             EnrollmentStrategy enrollmentStrategy = strategyFactory.getStrategy(strategy.getStrategyType());
             CourseResponseWrapper result = enrollmentStrategy.enroll(dto, course, strategy);
 
-            // 6. 保存选课记录
+            // 保存选课记录
             if (result.isSuccess() && result.getData() instanceof EnrollmentsVo) {
                 EnrollmentsVo enrollment = (EnrollmentsVo) result.getData();
                 enrollment.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
@@ -143,13 +187,12 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
                 sendEnrollmentHeatEvent(course.getId(), dto.getStudentId(), course.getTeacherId());
 
                 // 发送用户行为消息到推荐模块
-                sendEnrollmentBehaviorMessage(dto.getStudentId(), course.getId());
-
                 log.info("选课成功: enrollmentId={}, studentId={}, courseId={}",
                         enrollment.getId(), enrollment.getStudentId(), enrollment.getCourseId());
 
             } else if (result.isSuccess() && result.getData() instanceof WaitlistsVo) {
                 WaitlistsVo waitlist = (WaitlistsVo) result.getData();
+                waitlist.setPosition(1);
                 waitlist.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
                 waitlist.setCruAndLuu(CurUserUtil.getUserCode());
                 waitlistsDao.insert(waitlist);
@@ -160,76 +203,60 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
 
             log.info("选课处理完成: studentId={}, courseId={}, success={}",
                     dto.getStudentId(), dto.getCourseId(), result.isSuccess());
+
             return result;
 
+        } catch (TimeoutException e) {
+            log.warn("选课操作超时: studentId={}, courseId={}", dto.getStudentId(), dto.getCourseId());
+            return CourseResponseWrapper.getFailed("系统繁忙，请稍后重试");
         } catch (Exception e) {
-            log.error("选课系统异常: studentId={}, courseId={}", dto.getStudentId(), dto.getCourseId(), e);
-            return CourseResponseWrapper.getFailed("系统异常，请稍后重试");
-        } finally {
-            // 确保锁一定会被释放
-            if (locked) {
-                try {
-                    redissLockUtil.unlock(lockKey);
-                } catch (Exception e) {
-                    log.error("释放分布式锁异常: lockKey={}", lockKey, e);
-                }
-            }
+            log.error("并行处理异常", e);
+            return CourseResponseWrapper.getFailed("系统异常");
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper drop(Long enrollmentId, EnrollmentsDto dto) {
-        String lockKey = "drop-lock-" + enrollmentId;
-        boolean locked = false;
+        // 获取选课记录
+        EnrollmentsVo enrollment = enrollmentsDao.selectById(enrollmentId);
+        if (ObjectUtil.isEmpty(enrollment)) {
+            return CourseResponseWrapper.getFailed("选课记录不存在");
+        }
+
+        // 权限验证
+        if (!enrollment.getStudentId().equals(dto.getStudentId())) {
+            return CourseResponseWrapper.getFailed("无权操作此选课记录");
+        }
+
+        // 获取课程信息和策略
+        CompletableFuture<CoursesDto> courseFuture = CompletableFuture.supplyAsync(
+                () -> getCachedCourse(enrollment.getCourseId()),enrollmentExecutor);
+
+        CompletableFuture<EnrollmentStrategiesVo> strategyFuture = CompletableFuture.supplyAsync(
+                () -> getCachedStrategy(enrollment.getCourseId()),enrollmentExecutor);
 
         try {
-            // 1. 获取分布式锁
-            locked = redissLockUtil.tryLock(lockKey, 100L, 30000L);
-            if (!locked) {
-                return CourseResponseWrapper.getFailed("系统繁忙，请稍后重试");
-            }
 
-            // 2. 获取选课记录
-            EnrollmentsVo enrollment = enrollmentsDao.selectById(enrollmentId);
-            if (ObjectUtil.isEmpty(enrollment)) {
-                return CourseResponseWrapper.getFailed("选课记录不存在");
-            }
-
-            // 3. 权限验证
-            if (!enrollment.getStudentId().equals(dto.getStudentId())) {
-                return CourseResponseWrapper.getFailed("无权操作此选课记录");
-            }
-
-            // 4. 获取课程信息和策略
-            CoursesDto course = FeignResponseHelper.convert(
-                    courseFeignService.searchDetail(enrollment.getCourseId()), CoursesDto.class);
+            // 等待并行任务完成
+            CoursesDto course = courseFuture.get(2, TimeUnit.SECONDS);
+            EnrollmentStrategiesVo strategy = strategyFuture.get(1, TimeUnit.SECONDS);
             if (ObjectUtil.isEmpty(course)) {
                 return CourseResponseWrapper.getFailed("课程不存在");
             }
-            dto.setCourseId(enrollment.getCourseId());
 
-            EnrollmentStrategiesVo strategy = enrollmentStrategiesDao.selectOne(
-                    new LambdaQueryWrapper<EnrollmentStrategiesVo>()
-                            .eq(EnrollmentStrategiesVo::getCourseId, enrollment.getCourseId()));
-            if (ObjectUtil.isEmpty(strategy)) {
-                strategy = createDefaultStrategy(enrollment.getCourseId());
-            }
-
-            // 5. 使用责任链进行完整退选验证
+            // 并行进行完整退选验证
             ValidationResult validationResult = enrollmentValidationService.validateDrop(dto, course, strategy);
             if (!validationResult.isValid()) {
                 String rejectionReasons = String.join("; ", validationResult.getRejectionReasons());
-                log.warn("退课验证失败: studentId={}, courseId={}, reasons={}",
-                        dto.getStudentId(), dto.getCourseId(), rejectionReasons);
                 return CourseResponseWrapper.getFailed(rejectionReasons);
             }
 
-            // 6. 根据策略执行退选
+            // 根据策略执行退选
             DropStrategy dropStrategy = dropStrategyFactory.getStrategy(strategy.getDropStrategyType());
             CourseResponseWrapper result = dropStrategy.drop(enrollment, course, strategy);
 
-            // 7. 更新选课记录
+            // 更新选课记录
             if (result.isSuccess() && result.getData() instanceof EnrollmentsVo) {
                 EnrollmentsVo updatedEnrollment = (EnrollmentsVo) result.getData();
                 enrollmentsDao.deleteById(updatedEnrollment.getId());
@@ -251,19 +278,12 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
             }
 
             return result;
-
+        } catch (TimeoutException e) {
+            log.warn("选课操作超时: studentId={}, courseId={}", dto.getStudentId(), dto.getCourseId());
+            return CourseResponseWrapper.getFailed("系统繁忙，请稍后重试");
         } catch (Exception e) {
-            log.error("退选系统异常: enrollmentId={}, studentId={}", enrollmentId, dto.getStudentId(), e);
-            return CourseResponseWrapper.getFailed("系统异常，请稍后重试");
-        } finally {
-            // 释放锁
-            if (locked) {
-                try {
-                    redissLockUtil.unlock(lockKey);
-                } catch (Exception e) {
-                    log.error("释放分布式锁异常: lockKey={}", lockKey, e);
-                }
-            }
+            log.error("并行处理异常", e);
+            return CourseResponseWrapper.getFailed("系统异常");
         }
     }
 

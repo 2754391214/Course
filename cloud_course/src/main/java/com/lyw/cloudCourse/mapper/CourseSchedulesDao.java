@@ -1,8 +1,11 @@
 package com.lyw.cloudCourse.mapper;
 
-import com.lyw.cloudCourse.vo.CourseSchedulesVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.lyw.cloudCourse.vo.CourseSchedulesVo;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface CourseSchedulesDao extends BaseMapper<CourseSchedulesVo> {
 
+    Integer checkTimeConflictInDB(@Param("courseId") Long courseId, @Param("enrolledCourseIds") List<Long> enrolledCourseIds);
 }

@@ -51,7 +51,7 @@ public class EnrollmentTransationImpl implements EnrollmentTransationBo {
                     .setStudentId(dto.getStudentId())
                     .setCourseId(dto.getCourseId())
                     .setOperationType("ENROLL")
-                    .setTransactionStatus("INIT")
+                    .setTransactionStatus("PROCESSING")
                     .setRetryCount(0)
                     .setMaxRetryCount(5)
                     .setRequestData(JSON.toJSONString(dto));
@@ -73,9 +73,6 @@ public class EnrollmentTransationImpl implements EnrollmentTransationBo {
     @Override
     public void asyncIncrementCourseEnrollment(Long courseId, String transactionId) {
         try {
-            // 标记事务为处理中
-            updateTransactionStatus(transactionId, "PROCESSING", null, null);
-
             // 使用RabbitMQ发送消息
             EnrollmentMessage message = new EnrollmentMessage()
                     .setTransactionId(transactionId)
@@ -547,7 +544,7 @@ public class EnrollmentTransationImpl implements EnrollmentTransationBo {
                     .setStudentId(dto.getStudentId())
                     .setCourseId(dto.getCourseId())
                     .setOperationType("DROP")
-                    .setTransactionStatus("INIT")
+                    .setTransactionStatus("PENDING")
                     .setRetryCount(0)
                     .setMaxRetryCount(5)
                     .setRequestData(JSON.toJSONString(dto));
@@ -570,9 +567,6 @@ public class EnrollmentTransationImpl implements EnrollmentTransationBo {
     @Async
     public void asyncDecrementCourseEnrollment(Long courseId, String transactionId) {
         try {
-            // 标记事务为处理中
-            updateTransactionStatus(transactionId, "PROCESSING", null, null);
-
             // 使用RabbitMQ发送消息
             EnrollmentMessage message = new EnrollmentMessage()
                     .setTransactionId(transactionId)
