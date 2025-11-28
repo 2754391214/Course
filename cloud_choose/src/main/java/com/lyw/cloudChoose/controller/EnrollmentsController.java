@@ -1,13 +1,12 @@
 package com.lyw.cloudChoose.controller;
 
+import com.lyw.cloudChoose.dto.EnrollmentsDto;
+import com.lyw.cloudChoose.service.EnrollmentsBo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import com.lyw.cloudChoose.service.EnrollmentsBo;
-import com.lyw.cloudChoose.dto.EnrollmentsDto;
-import com.lyw.commonUtil.controller.BaseController;
 
 /**
  * <p>
@@ -20,7 +19,7 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 选课表")
 @RestController
-@RequestMapping("Enrollments")
+@RequestMapping("enrollments")
 public class EnrollmentsController {
     private final EnrollmentsBo service;
 
@@ -50,16 +49,6 @@ public class EnrollmentsController {
             @PathVariable Long studentId,
             @RequestParam(required = false) EnrollmentsDto dto) {
         return service.getStudentEnrollments(studentId,dto);
-    }
-
-    /**
-     * 获取学生课表
-     */
-    @GetMapping("/students/{studentId}/timetable")
-    public CourseResponseWrapper getStudentTimetable(
-            @PathVariable Long studentId,
-            @RequestParam(required = false) EnrollmentsDto dto) {
-        return service.getStudentTimetable(studentId,dto);
     }
 
     /**

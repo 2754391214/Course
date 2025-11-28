@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * <p>
@@ -133,4 +134,8 @@ public class CoursesVo extends BaseVo {
     @ApiModelProperty("信息")
     @TableField(exist = false)
     private String message;
+
+    @ApiModelProperty("课程安排")
+    @TableField(exist = false)
+    private List<CourseSchedulesVo> courseSchedules;
 }

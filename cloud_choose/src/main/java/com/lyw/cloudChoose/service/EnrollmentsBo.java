@@ -21,13 +21,6 @@ public interface EnrollmentsBo extends IService<EnrollmentsVo> {
 
     CourseResponseWrapper getStudentEnrollments(Long studentId, EnrollmentsDto dto);
 
-    CourseResponseWrapper getStudentTimetable(Long studentId, EnrollmentsDto dto);
-
     CourseResponseWrapper getCourseEnrollments(Long courseId, EnrollmentsDto dto);
 
-    /**
-     * 为等待列表中的学生执行选课
-     * 这个方法由系统自动调用，不经过学生主动操作
-     */
-    CourseResponseWrapper enrollFromWaitlist(EnrollmentsDto enrollDto);
 }

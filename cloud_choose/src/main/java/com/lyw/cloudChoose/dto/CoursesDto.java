@@ -5,6 +5,8 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.util.List;
+
 /**
  * <p>
  * 课程基础信息表
@@ -72,6 +74,6 @@ public class CoursesDto extends BaseDto {
     private String metadata;
 
     //不属于表结构字段
-    @ApiModelProperty("是否满课")
-    private Boolean fullEnrolledCount;
+    @ApiModelProperty("课程时间安排")
+    private List<CourseSchedulesDto> courseSchedules;
 }

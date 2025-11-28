@@ -1,6 +1,7 @@
 package com.lyw.cloudInteraction.controller;
 
 import com.lyw.cloudInteraction.dto.FavoriteItemsDto;
+import com.lyw.cloudInteraction.service.FavoriteItemsBo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -22,11 +23,11 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 收藏夹表")
 @RestController
-@RequestMapping("Favorites")
+@RequestMapping("favorites")
 public class FavoritesController {
 
     private final FavoritesBo service;
-
+    private final FavoriteItemsBo favoriteItemsBo;
     /**
      * 创建收藏夹
      */
@@ -41,9 +42,7 @@ public class FavoritesController {
      */
     @ApiOperation("更新收藏夹")
     @PutMapping("/{favoriteId}")
-    public CourseResponseWrapper updateFavorite(
-            @PathVariable Long favoriteId,
-            @RequestBody FavoritesDto dto) {
+    public CourseResponseWrapper updateFavorite(@PathVariable Long favoriteId, @RequestBody FavoritesDto dto) {
         dto.setId(favoriteId);
         return service.updateFavorite(dto);
     }
@@ -53,8 +52,7 @@ public class FavoritesController {
      */
     @ApiOperation("删除收藏夹")
     @DeleteMapping("/{favoriteId}")
-    public CourseResponseWrapper deleteFavorite(
-            @PathVariable Long favoriteId) {
+    public CourseResponseWrapper deleteFavorite(@PathVariable Long favoriteId) {
         return service.deleteFavorite(favoriteId);
     }
 
@@ -77,61 +75,11 @@ public class FavoritesController {
     }
 
     /**
-     * 添加收藏项
-     */
-    @ApiOperation("添加收藏项")
-    @PostMapping("/{favoriteId}/items")
-    public CourseResponseWrapper addFavoriteItem(
-            @PathVariable Long favoriteId,
-            @RequestBody FavoriteItemsDto dto) {
-        dto.setFavoriteId(favoriteId);
-        return service.addFavoriteItem(dto);
-    }
-
-    /**
-     * 移除收藏项
-     */
-    @ApiOperation("移除收藏项")
-    @DeleteMapping("/{favoriteId}/items")
-    public CourseResponseWrapper removeFavoriteItem(
-            @PathVariable Long favoriteId,
-            @RequestBody FavoriteItemsDto dto) {
-        dto.setFavoriteId(favoriteId);
-        return service.removeFavoriteItem(dto);
-    }
-
-    /**
      * 获取收藏夹内的项目列表
      */
     @ApiOperation("获取收藏夹内的项目列表")
     @GetMapping("/{favoriteId}/items")
     public CourseResponseWrapper getFavoriteItems(@PathVariable Long favoriteId) {
-        return service.getFavoriteItems(favoriteId);
-    }
-
-    /**
-     * 更新收藏项备注
-     */
-    @ApiOperation("更新收藏项备注")
-    @PutMapping("/{favoriteId}/items/{itemId}")
-    public CourseResponseWrapper updateFavoriteItem(
-            @PathVariable Long favoriteId,
-            @PathVariable Long itemId,
-            @RequestBody FavoriteItemsDto dto) {
-        dto.setFavoriteId(favoriteId)
-                .setId(itemId);
-        return service.updateFavoriteItem(dto);
-    }
-
-    /**
-     * 检查用户收藏状态
-     */
-    @ApiOperation("检查用户收藏状态")
-    @GetMapping("/status")
-    public CourseResponseWrapper getFavoriteStatus(
-            @RequestParam String targetType,
-            @RequestParam Long targetId,
-            @RequestParam Long userId) {
-        return service.getFavoriteStatus(targetType, targetId, userId);
+        return favoriteItemsBo.getFavoriteItems(favoriteId);
     }
 }

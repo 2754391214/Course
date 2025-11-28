@@ -2,32 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lyw.cloudInteraction.mapper.ReviewsDao">
-
-
-    <update id="incrementLikeCount">
-        UPDATE reviews SET like_count = like_count + 1 WHERE id = #{reviewId}
-    </update>
-    <update id="decrementLikeCount">
-        UPDATE reviews SET like_count = GREATEST(like_count - 1, 0) WHERE id = #{reviewId}
-    </update>
-    <update id="incrementUsefulCount">
-        UPDATE reviews SET useful_count = useful_count + 1 WHERE id = #{reviewId}
-    </update>
-    <update id="decrementUsefulCount">
-        UPDATE reviews SET useful_count = GREATEST(useful_count - 1, 0) WHERE id = #{reviewId}
-    </update>
-    <update id="updateLikeCount">
-        UPDATE reviews SET like_count = #{count} WHERE id = #{reviewId}
-    </update>
-    <update id="updateUsefulCount">
-        UPDATE reviews SET useful_count = #{count} WHERE id = #{reviewId}
-    </update>
-    <update id="incrementReplyCount">
-        UPDATE reviews SET reply_count = reply_count + 1 WHERE id = #{reviewId}
-    </update>
-    <update id="decrementReplyCount">
-        UPDATE reviews SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = #{reviewId}
-    </update>
     <select id="selectReviewStatistics" resultType="com.lyw.cloudInteraction.vo.ReviewsVo">
         SELECT
             COUNT(*) as totalReviews,

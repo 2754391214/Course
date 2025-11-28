@@ -2,11 +2,7 @@ package com.lyw.cloudInteraction.dto;
 
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
-import java.util.Date;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -17,7 +13,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/29
  */
 @Data
-@Accessors(chain = true)
 public class FavoriteItemsDto extends BaseDto {
 
     @ApiModelProperty("主键ID")
@@ -31,8 +26,16 @@ public class FavoriteItemsDto extends BaseDto {
     
     @ApiModelProperty("目标ID")
     private Long targetId;
-    
+
+    @ApiModelProperty("用户ID")
+    private Long userId;
+
     @ApiModelProperty("收藏备注")
     private String notes;
-                    
+
+    @ApiModelProperty("移動到對於的收藏夾")
+    private Long targetFavoriteId;
+
+    @ApiModelProperty("课程ID")
+    private Long courseId;
 }

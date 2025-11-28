@@ -16,6 +16,7 @@ import java.util.List;
  * @since 2025/10/22
  */
 public interface CoursesBo extends BaseBo<CoursesVo,CoursesDto> {
+    CourseResponseWrapper findById(Long courseId);
 
     CourseResponseWrapper getPopularCourses(Integer limit, String semester);
 

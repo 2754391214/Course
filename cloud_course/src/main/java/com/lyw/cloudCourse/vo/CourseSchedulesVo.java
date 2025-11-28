@@ -9,9 +9,8 @@ import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import lombok.experimental.Accessors;
-import org.springframework.format.annotation.DateTimeFormat;
 
-import java.util.Date;
+import java.time.LocalTime;
 
 /**
  * <p>
@@ -40,15 +39,13 @@ public class CourseSchedulesVo extends BaseVo {
 
     @ApiModelProperty("上课开始时间")
     @TableField(value = "start_time")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date startTime;
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime startTime;
 
     @ApiModelProperty("上课结束时间")
     @TableField(value = "end_time")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date endTime;
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime endTime;
 
     @ApiModelProperty("上课地点")
     @TableField(value = "location")

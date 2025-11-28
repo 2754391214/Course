@@ -1,7 +1,6 @@
 package com.lyw.cloudInteraction.dto;
 
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -12,7 +11,6 @@ import java.util.Map;
  * 用户行为消息DTO - 与互动模块保持一致
  */
 @Data
-@Accessors(chain = true)
 public class UserBehaviorMessage implements Serializable {
 
     private static final long serialVersionUID = 1L;

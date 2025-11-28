@@ -1,36 +1,44 @@
 package com.lyw.cloudRanking.service.impl;
 
-import com.lyw.cloudRanking.dto.HeatEventMessage;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.TypeReference;
 import com.lyw.cloudRanking.service.HeatCalculateService;
 import com.lyw.cloudRanking.service.RankingConfigBo;
 import com.lyw.cloudRanking.vo.RankingConfigVo;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
+import com.lyw.commonUtil.message.HeatEventMessage;
+import com.lyw.commonUtil.util.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
 public class HeatCalculateServiceImpl implements HeatCalculateService {
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-    @Autowired
+    @Resource
     private RankingConfigBo rankingConfigBo;
+    @Resource
+    private RedisUtils redisUtils;
 
     // 默认权重配置
     private static final Map<String, Double> DEFAULT_WEIGHTS = new HashMap<>();
     static {
-        DEFAULT_WEIGHTS.put("ENROLLMENT", 5.0);
-        DEFAULT_WEIGHTS.put("WITHDRAWAL", -3.0);
-        DEFAULT_WEIGHTS.put("RATING", 8.0);
-        DEFAULT_WEIGHTS.put("LIKE", 2.0);
-        DEFAULT_WEIGHTS.put("FAVORITE", 3.0);
-        DEFAULT_WEIGHTS.put("COMMENT", 4.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.ENROLLMENT, 5.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.WITHDRAWAL, 3.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.RATING, 8.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.LIKE, 2.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.FAVORITE, 3.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.COMMENT, 4.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.REVIEW, 1.0);
+        DEFAULT_WEIGHTS.put(CommonKeyConstant.REPLY, 1.0);
     }
 
     /**
@@ -41,25 +49,37 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
         RankingConfigVo config = rankingConfigBo.getConfigByCode("course_heat");
         Map<String, Double> weights = getWeightsFromConfig(config);
 
-        double baseIncrement = getBaseIncrement(event, weights);
-        double qualityFactor = calculateQualityFactor(event);
-        double timeFactor = calculateTimeFactor(event);
+        // 并行执行三个独立计算
+        CompletableFuture<Double> baseIncrementFuture = CompletableFuture
+                .supplyAsync(() -> getBaseIncrement(event, weights));
 
-        return baseIncrement * qualityFactor * timeFactor;
+        CompletableFuture<Double> qualityFactorFuture = CompletableFuture
+                .supplyAsync(() -> calculateQualityFactor(event));
+
+        CompletableFuture<Double> timeFactorFuture = CompletableFuture
+                .supplyAsync(() -> calculateTimeFactor(event));
+
+        // 等待所有任务完成并计算结果
+        try {
+            return CompletableFuture.allOf(baseIncrementFuture, qualityFactorFuture, timeFactorFuture)
+                    .thenApply(v -> baseIncrementFuture.join() * qualityFactorFuture.join() * timeFactorFuture.join())
+                    .get(); // 获取最终结果
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            // 降级为串行计算
+            return getBaseIncrement(event, weights) * calculateQualityFactor(event) * calculateTimeFactor(event);
+        }
     }
 
     /**
      * 获取权重配置
      */
     private Map<String, Double> getWeightsFromConfig(RankingConfigVo config) {
-        if (config == null || config.getWeights() == null) {
+        if (ObjectUtil.isEmpty(config) || StrUtil.isEmpty(config.getWeights())) {
             return DEFAULT_WEIGHTS;
         }
-
         try {
-            // 简单的JSON解析，实际可以使用Jackson
-            // 这里简化处理，实际项目中需要根据weights字段的实际格式解析
-            return DEFAULT_WEIGHTS;
+            return JSON.parseObject(config.getWeights(), new TypeReference<Map<String, Double>>() {});
         } catch (Exception e) {
             log.warn("解析权重配置失败，使用默认配置", e);
             return DEFAULT_WEIGHTS;
@@ -72,22 +92,17 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
     private double getBaseIncrement(HeatEventMessage event, Map<String, Double> weights) {
         double base = weights.getOrDefault(event.getEventType(), 1.0);
 
-        // 处理取消操作（REMOVE action）
-        if ("REMOVE".equals(event.getAction())) {
-            return -base;
-        }
-
         // 评分事件特殊处理
-        if ("RATING".equals(event.getEventType()) && event.getRatingValue() != null) {
+        if (CommonKeyConstant.RATING.equals(event.getEventType()) && event.getRatingValue() != null) {
             return base * (event.getRatingValue() / 5.0); // 按评分比例计算
         }
 
         // 互动事件根据目标类型调整权重
-        if ("LIKE".equals(event.getEventType()) || "FAVORITE".equals(event.getEventType())) {
+        if (CommonKeyConstant.LIKE.equals(event.getEventType()) || CommonKeyConstant.FAVORITE.equals(event.getEventType())) {
             // 评价的点赞/收藏权重高于回复
-            if ("review".equals(event.getTargetType())) {
+            if (CommonKeyConstant.REVIEW.equals(event.getTargetType())) {
                 return base * 1.5;
-            } else if ("reply".equals(event.getTargetType())) {
+            } else if (CommonKeyConstant.REPLY.equals(event.getTargetType())) {
                 return base * 1.0;
             }
         }
@@ -103,7 +118,7 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
 
         // 可以根据事件的具体内容调整质量因子
         // 例如：评论长度、评分是否带文字等
-        if ("COMMENT".equals(event.getEventType())) {
+        if (CommonKeyConstant.COMMENT.equals(event.getEventType())) {
             // 假设事件数据中包含评论长度
             factor += 0.5; // 有评论额外加分
         }
@@ -115,7 +130,7 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
      * 计算时间因子（时间衰减）
      */
     private double calculateTimeFactor(HeatEventMessage event) {
-        if (event.getEventTime() == null) {
+        if (ObjectUtil.isEmpty(event.getEventTime())) {
             return 1.0;
         }
 
@@ -137,7 +152,7 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
 
         try {
             // 使用原子操作更新热度值
-            redisTemplate.opsForValue().increment(heatKey, increment);
+            redisUtils.incrByFloat(heatKey, increment);
 
             // 异步更新排行榜
             new Thread(() -> updateRankingAsync(courseId, heatKey, rankingKey)).start();
@@ -154,22 +169,14 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
      */
     private void updateRankingAsync(Long courseId, String heatKey, String rankingKey) {
         try {
-            Double currentHeat = (Double) redisTemplate.opsForValue().get(heatKey);
-            if (currentHeat != null) {
-                redisTemplate.opsForZSet().add(rankingKey, courseId, currentHeat);
-
+            Double currentHeat = redisUtils.get(heatKey);
+            if (ObjectUtil.isNotEmpty(currentHeat)) {
+                redisUtils.zAdd(rankingKey, courseId, currentHeat);
                 // 限制排行榜大小，避免内存问题
-                redisTemplate.opsForZSet().removeRange(rankingKey, 0, -1001);
+                redisUtils.zRemoveRange(rankingKey, 0, -1001);
             }
         } catch (Exception e) {
             log.error("异步更新排行榜失败: courseId={}", courseId, e);
         }
-    }
-
-    /**
-     * 批量更新热度
-     */
-    public void batchUpdateHeat(Map<Long, Double> heatUpdates) {
-        heatUpdates.forEach(this::updateCourseHeat);
     }
 }

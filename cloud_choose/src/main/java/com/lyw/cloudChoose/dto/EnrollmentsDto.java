@@ -32,17 +32,6 @@ private Long courseId;
 @ApiModelProperty("选课类型：NORMAL-正常选课, AUDIT-旁听, WAITLIST-等待列表")
 private String enrollmentType;
     
-@ApiModelProperty("选课状态：PENDING-待处理, SUCCESS-成功, FAILED-失败, DROPPED-已退课, WAITING-等待中")
-private String status;
-    
-@ApiModelProperty("选课来源：WEB, APP, ADMIN等")
-private String enrollmentSource;
-    
-@ApiModelProperty("选课时间")
-@DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-@JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-private Date enrolledAt;
-    
 @ApiModelProperty("选课批准时间")
 @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
 @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")

@@ -33,6 +33,10 @@ public class CoursesController extends BaseController<CoursesDto> {
         return service;
     }
 
+    @GetMapping("/{id}")
+    public CourseResponseWrapper searchDetail(@PathVariable Long id){
+        return service.findById(id);
+    }
     /**
      * 获取热门课程
      */

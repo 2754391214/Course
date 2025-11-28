@@ -272,22 +272,16 @@ public class RecommendServiceImpl extends ServiceImpl<RecommendResultsDao, Recom
             log.info("接收到用户行为消息, messageId: {}, userId: {}, courseId: {}, behavior: {}",
                     message.getMessageId(), message.getUserId(), message.getCourseId(), message.getBehaviorType());
 
-            // 1. 消息去重检查（可选）
-            if (isDuplicateMessage(message)) {
-                log.warn("重复消息，跳过处理, messageId: {}", message.getMessageId());
-                return;
-            }
-
-            // 2. 参数验证
+            // 参数验证
             if (!validateMessage(message)) {
                 log.error("消息参数验证失败, messageId: {}", message.getMessageId());
                 throw new IllegalArgumentException("消息参数不合法");
             }
 
-            // 3. 转换为推荐模块内部的 VO 对象
+            // 转换为推荐模块内部的 VO 对象
             UserBehaviorVo userBehavior = convertToUserBehaviorVo(message);
 
-            // 4. 处理用户行为
+            // 处理用户行为
             CourseResponseWrapper<Boolean> result = processUserBehavior(userBehavior);
 
             if (!result.isSuccess()) {
@@ -328,16 +322,6 @@ public class RecommendServiceImpl extends ServiceImpl<RecommendResultsDao, Recom
 
     // ==================== 私有方法具体实现 ====================
     /**
-     * 消息去重检查
-     */
-    private boolean isDuplicateMessage(UserBehaviorMessage message) {
-        // 实现消息去重逻辑
-        // 可以使用 Redis 或数据库记录已处理的消息ID
-        // 这里简单返回 false，实际生产环境需要实现
-        return false;
-    }
-
-    /**
      * 消息参数验证
      */
     private boolean validateMessage(UserBehaviorMessage message) {
@@ -373,7 +357,7 @@ public class RecommendServiceImpl extends ServiceImpl<RecommendResultsDao, Recom
         userBehavior.setBehaviorType(message.getBehaviorType());
         userBehavior.setBehaviorTime(message.getBehaviorTime());
         userBehavior.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
-        userBehavior.setCruAndLuu(CurUserUtil.getUserCode());
+        userBehavior.setCruAndLuu(CurUserUtil.getUserId());
         // 设置行为权重（如果消息中未提供，则根据行为类型计算）
         if (message.getBehaviorWeight() != null) {
             userBehavior.setBehaviorWeight(message.getBehaviorWeight());
@@ -601,7 +585,7 @@ public class RecommendServiceImpl extends ServiceImpl<RecommendResultsDao, Recom
                     .setPreferredTeachers(preferredTeachers)
                     .setLearningGoals(learningGoals)
                     .setFeatureVector(featureVector);
-            userProfileVo.setCruAndLuu(CurUserUtil.getUserCode());
+            userProfileVo.setCruAndLuu(CurUserUtil.getUserId());
             userProfileVo.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
             return userProfileVo;
 

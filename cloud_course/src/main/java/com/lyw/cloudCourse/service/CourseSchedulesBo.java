@@ -18,4 +18,6 @@ import java.util.List;
 public interface CourseSchedulesBo extends BaseBo<CourseSchedulesVo,CourseSchedulesDto> {
 
     CourseResponseWrapper checkTimeConflict(Long courseId, Long studentId, List<Long> enrolledCourseIds);
+
+    CourseResponseWrapper batchGetCourseSchedules(List<Long> courseIds);
 }

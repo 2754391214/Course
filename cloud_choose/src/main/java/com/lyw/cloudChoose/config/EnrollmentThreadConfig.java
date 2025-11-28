@@ -13,9 +13,9 @@ public class EnrollmentThreadConfig {
     @Bean("enrollmentExecutor")
     public Executor enrollmentExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(20);
-        executor.setQueueCapacity(100);
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("enrollment-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setKeepAliveSeconds(60);
@@ -26,13 +26,26 @@ public class EnrollmentThreadConfig {
     @Bean("validationExecutor")
     public Executor validationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(15);
-        executor.setMaxPoolSize(30);
-        executor.setQueueCapacity(200);
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("validation-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setKeepAliveSeconds(60);
         executor.initialize();
         return executor;
     }
+    @Bean("messageExecutor")
+    public Executor messageExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("messageSend-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setKeepAliveSeconds(60);
+        executor.initialize();
+        return executor;
+    }
+
 }

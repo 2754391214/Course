@@ -2,61 +2,96 @@ package com.lyw.cloudChoose.strategy.drop.impl;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.lyw.cloudChoose.dto.CoursesDto;
+import com.lyw.cloudChoose.mapper.EnrollmentsDao;
+import com.lyw.cloudChoose.service.EnrollmentService;
 import com.lyw.cloudChoose.service.WaitlistsBo;
 import com.lyw.cloudChoose.strategy.drop.DropStrategy;
 import com.lyw.cloudChoose.vo.EnrollmentStrategiesVo;
 import com.lyw.cloudChoose.vo.EnrollmentsVo;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.util.DateTimeUtils;
-import com.lyw.commonUtil.util.CurUserUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
+
 import javax.annotation.Resource;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 
 // 有等待列表的退选策略
 @Slf4j
 @Component("WAITLIST_DROP")
 public class WaitlistDropStrategy implements DropStrategy {
-
-    @Resource
-    private WaitlistsBo waitlistService;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private DefaultRedisScript<Long> dropScript;
+    @Resource
+    private EnrollmentsDao enrollmentsDao;
+    @Resource
+    private EnrollmentService enrollmentService;
+
     @Override
     public CourseResponseWrapper drop(EnrollmentsVo enrollment, CoursesDto course,
                                       EnrollmentStrategiesVo strategy) {
-        // 使用Lua脚本进行原子性选课检查
+
+        Long courseId = enrollment.getCourseId();
+        Long studentId = enrollment.getStudentId();
+
+        log.info("开始退课处理（等待列表策略）- 学生ID: {}, 课程ID: {}", studentId, courseId);
+
+        // 使用Lua脚本进行原子性退课操作
         List<String> keys = Arrays.asList(
-                "course:current:"+enrollment.getCourseId(),
-                "student:enrollment:"+enrollment.getStudentId()+":"+enrollment.getCourseId()
+                RedisKeyConstant.COURSE_CURRENT + courseId,
+                RedisKeyConstant.STUDENT_COURSES + studentId
         );
-        Long enrollResult = stringRedisTemplate.execute(dropScript, keys);
-        if (ObjectUtil.isEmpty(enrollResult)||enrollResult == 2L) {
+
+        List<String> args = Arrays.asList(
+                courseId.toString(),
+                String.valueOf(RedisKeyConstant.DEFAULT_EXPIRE_SECONDS)
+        );
+
+        Long dropResult = stringRedisTemplate.execute(dropScript, keys, args.toArray());
+
+        if (ObjectUtil.isEmpty(dropResult) || dropResult == 2L) {
             return CourseResponseWrapper.getFailed("系统繁忙，请稍后重试");
-        } else {
-            if (enrollResult == 1L) {
-                log.info("Redis中未找到选课记录（需要检查数据库）");
-            }
         }
+        return handleDropResult(dropResult, enrollment, course, studentId, courseId);
+    }
+    /**
+     * 根据选课结果处理不同的情况
+     */
+    private CourseResponseWrapper handleDropResult(Long dropResult, EnrollmentsVo enrollment,
+                                                   CoursesDto course, Long studentId, Long courseId) {
+        switch (dropResult.intValue()) {
+            case 1:
+                log.warn("Redis中未找到选课记录，需要检查数据库 - 学生ID: {}, 课程ID: {}", studentId, courseId);
+                return handleDatabaseCleanup(enrollment, course, studentId);
+            case 0:
+                return enrollmentService.handleSuccessfulDrop(enrollment, course, studentId);
 
-        EnrollmentsVo updatedEnrollment = new EnrollmentsVo();
-        BeanUtils.copyProperties(enrollment, updatedEnrollment);
-        updatedEnrollment.setStatus("DROPPED");
-        updatedEnrollment.setDroppedAt(new Date());
-        updatedEnrollment.setLud(DateTimeUtils.getCurrentDateTime());
-        updatedEnrollment.setLuu(CurUserUtil.getUserCode());
-
-        // 异步处理等待列表
-        waitlistService.processWaitlistAfterDrop(course.getId());
-
-        return CourseResponseWrapper.getSuccess("退选成功，已触发等待列表处理", updatedEnrollment);
+            default:
+                return CourseResponseWrapper.getFailed("未知错误");
+        }
+    }
+    /**
+     * 处理数据库清理（当Redis中无记录但数据库有记录时）
+     */
+    private CourseResponseWrapper handleDatabaseCleanup(EnrollmentsVo enrollment, CoursesDto course, Long studentId) {
+        try {
+            // 检查数据库记录是否存在
+            EnrollmentsVo dbEnrollment = enrollmentsDao.selectById(enrollment.getId());
+            if (dbEnrollment != null) {
+                // 数据库记录存在，执行退课流程
+                return enrollmentService.handleSuccessfulDrop(dbEnrollment, course, studentId);
+            } else {
+                log.info("数据库中也无选课记录，无需处理 - enrollmentId: {}", enrollment.getId());
+                return CourseResponseWrapper.getSuccess("退选成功", enrollment);
+            }
+        } catch (Exception e) {
+            log.error("数据库清理检查失败 - enrollmentId: {}", enrollment.getId(), e);
+            return CourseResponseWrapper.getFailed("系统异常，请稍后重试");
+        }
     }
 }

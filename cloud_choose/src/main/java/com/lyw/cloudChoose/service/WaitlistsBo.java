@@ -25,8 +25,4 @@ public interface WaitlistsBo extends IService<WaitlistsVo> {
     CourseResponseWrapper getStudentWaitlists(Long studentId);
 
     CourseResponseWrapper acceptWaitlistOffer(Long waitlistId);
-    /**
-     * 退选后处理等待列表
-     */
-    void processWaitlistAfterDrop(Long courseId);
 }

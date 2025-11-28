@@ -69,7 +69,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
             user.setAvatar(dto.getAvatar());
             user.setStatus(1); // 正常状态
             user.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
-            user.setCruAndLuu(CurUserUtil.getUserCode());
+            user.setCruAndLuu(CurUserUtil.getUserId());
 
             int userResult = userDao.insert(user);
             if (userResult <= 0) {
@@ -83,7 +83,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
             userAuth.setIdentifier(dto.getUserName()); // 使用用户名作为标识
             userAuth.setCredential(AES256.encrypt(dto.getPassword())); // 加密密码
             userAuth.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
-            userAuth.setCruAndLuu(CurUserUtil.getUserCode());
+            userAuth.setCruAndLuu(CurUserUtil.getUserId());
 
             int authResult = userAuthDao.insert(userAuth);
             if (authResult <= 0) {
@@ -268,7 +268,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
         user.setEmail(dto.getEmail());
         user.setStatus(1);
         user.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
-        user.setCruAndLuu(CurUserUtil.getUserCode());
+        user.setCruAndLuu(CurUserUtil.getUserId());
         user.setLastLoginTime(LocalDateTime.now());
 
         int userResult = userDao.insert(user);
@@ -283,7 +283,7 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
         userAuth.setIdentifier(dto.getSocialUid());
         userAuth.setCredential(""); // 社交登录不需要密码
         userAuth.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
-        userAuth.setCruAndLuu(CurUserUtil.getUserCode());
+        userAuth.setCruAndLuu(CurUserUtil.getUserId());
 
         int authResult = userAuthDao.insert(userAuth);
         if (authResult <= 0) {

@@ -1,22 +1,26 @@
 package com.lyw.cloudInteraction.service.impl;
 
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.lyw.cloudInteraction.mapper.InteractionsDao;
-import com.lyw.cloudInteraction.mapper.ReviewRepliesDao;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.cloudInteraction.dto.ReviewsDto;
+import com.lyw.cloudInteraction.mapper.ReviewRepliesDao;
 import com.lyw.cloudInteraction.mapper.ReviewsDao;
-import com.lyw.cloudInteraction.vo.InteractionsVo;
+import com.lyw.cloudInteraction.service.HeatEventPublisher;
+import com.lyw.cloudInteraction.service.ReviewsBo;
 import com.lyw.cloudInteraction.vo.ReviewRepliesVo;
 import com.lyw.cloudInteraction.vo.ReviewsVo;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseImpl;
+import com.lyw.commonUtil.util.BeanConverter;
+import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.lyw.cloudInteraction.service.ReviewsBo;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
@@ -37,33 +41,23 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> implements ReviewsBo {
-    @Resource
-    private InteractionsDao interactionsDao;
+public class ReviewsImpl extends ServiceImpl<ReviewsDao, ReviewsVo> implements ReviewsBo {
     @Resource
     private ReviewRepliesDao reviewRepliesDao;
-
+    @Resource
+    private HeatEventPublisher heatEventPublisher;
     @Override
-    public CourseResponseWrapper getReviewsByCourseId(Long courseId, Integer page, Integer size, String sort) {
+    public CourseResponseWrapper getReviewsByCourseId(ReviewsDto dto) {
+        Long courseId = dto.getCourseId();
         try {
-            Page<ReviewsVo> pageParam = new Page<>(page == null ? 1 : page, size == null ? 10 : size);
+            Page<ReviewsVo> pageParam = new Page<>(dto.getPageNo(), dto.getPageSize());
 
-            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(ReviewsVo::getCourseId, courseId)
-                    .eq(ReviewsVo::getStatus, "approved"); // 只查询已审核的评价
+            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getCourseId, courseId)
+                    .eq(ReviewsVo::getStatus, "approved") // 只查询已审核的评价
+                    .orderByDesc(ReviewsVo::getCrd);
 
-            // 排序处理
-            if ("latest".equals(sort)) {
-                queryWrapper.orderByDesc(ReviewsVo::getCrd);
-            } else if ("rating".equals(sort)) {
-                queryWrapper.orderByDesc(ReviewsVo::getOverallRating);
-            } else if ("like".equals(sort)) {
-                queryWrapper.orderByDesc(ReviewsVo::getLikeCount);
-            } else {
-                queryWrapper.orderByDesc(ReviewsVo::getCrd); // 默认按时间倒序
-            }
-
-            Page<ReviewsVo> result = getBaseMapper().selectPage(pageParam, queryWrapper);
+            Page<ReviewsVo> result = baseMapper.selectPage(pageParam, queryWrapper);
 
             // 处理匿名评价
             List<ReviewsVo> processedReviews = result.getRecords().stream()
@@ -84,15 +78,15 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     }
 
     @Override
-    public CourseResponseWrapper getReviewsByStudentId(Long studentId, Integer page, Integer size) {
+    public CourseResponseWrapper getReviewsByStudentId(ReviewsDto dto) {
+        Long studentId = dto.getStudentId();
         try {
-            Page<ReviewsVo> pageParam = new Page<>(page == null ? 1 : page, size == null ? 10 : size);
-
-            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(ReviewsVo::getStudentId, studentId)
+            Page<ReviewsVo> pageParam = new Page<>(dto.getPageNo(), dto.getPageSize());
+            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getStudentId, studentId)
                     .orderByDesc(ReviewsVo::getCrd);
 
-            Page<ReviewsVo> result = getBaseMapper().selectPage(pageParam, queryWrapper);
+            Page<ReviewsVo> result = baseMapper.selectPage(pageParam, queryWrapper);
 
             Map<String, Object> response = new HashMap<>();
             response.put("list", result.getRecords());
@@ -111,7 +105,7 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     public CourseResponseWrapper getCourseReviewStatistics(Long courseId) {
         try {
             // 获取评价统计
-            ReviewsVo statistics = getBaseMapper().selectReviewStatistics(courseId);
+            ReviewsVo statistics = baseMapper.selectReviewStatistics(courseId);
             if (ObjectUtil.isEmpty(statistics)) {
                 statistics.setTotalReviews(0);
                 statistics.setAverageRating(BigDecimal.valueOf(0));
@@ -119,12 +113,12 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             }
 
             // 获取评分分布
-            List<ReviewsVo> ratingDistribution = getBaseMapper().selectRatingDistribution(courseId);
+            List<ReviewsVo> ratingDistribution = baseMapper.selectRatingDistribution(courseId);
             statistics.setRatingDistribution(ratingDistribution);
 
-            // 获取标签统计
-            List<ReviewsVo> tagStatistics = getBaseMapper().selectTagStatistics(courseId);
-            statistics.setTagStatistics(tagStatistics);
+//            // 获取标签统计
+//            List<ReviewsVo> tagStatistics = baseMapper.selectTagStatistics(courseId);
+//            statistics.setTagStatistics(tagStatistics);
 
             return CourseResponseWrapper.getSuccess(statistics);
         } catch (Exception e) {
@@ -138,11 +132,11 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     public CourseResponseWrapper submitReview(ReviewsDto dto) {
         try {
             // 检查学生是否已经评价过该课程
-            LambdaQueryWrapper<ReviewsVo> checkWrapper = new LambdaQueryWrapper<>();
-            checkWrapper.eq(ReviewsVo::getCourseId, dto.getCourseId())
+            LambdaQueryWrapper<ReviewsVo> checkWrapper = new LambdaQueryWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getCourseId, dto.getCourseId())
                     .eq(ReviewsVo::getStudentId, dto.getStudentId());
 
-            long existingCount = getBaseMapper().selectCount(checkWrapper);
+            long existingCount = baseMapper.selectCount(checkWrapper);
             if (existingCount > 0) {
                 return CourseResponseWrapper.getFailed("您已经评价过该课程");
             }
@@ -158,21 +152,18 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
                 dto.setStatus("pending");
             }
 
-            // 初始化计数
-            if (dto.getLikeCount() == null) dto.setLikeCount(0);
-            if (dto.getUsefulCount() == null) dto.setUsefulCount(0);
-            if (dto.getReplyCount() == null) dto.setReplyCount(0);
-            if (dto.getViewCount() == null) dto.setViewCount(0);
-            if (dto.getReportCount() == null) dto.setReportCount(0);
             if (dto.getAnonymous() == null) dto.setAnonymous(false);
 
             // 保存评价
-            ReviewsVo reviewsVo = convertToVo(dto);
-            reviewsVo.setCrd(DateTimeUtils.getCurrentDateTime());
-            reviewsVo.setLud(DateTimeUtils.getCurrentDateTime());
+            ReviewsVo reviewsVo = BeanConverter.dtoToVo(dto,ReviewsVo.class);
+            reviewsVo.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
+            reviewsVo.setCruAndLuu(CurUserUtil.getUserId());
 
-            int result = getBaseMapper().insert(reviewsVo);
+            int result = baseMapper.insert(reviewsVo);
             if (result > 0) {
+
+                heatEventPublisher.publishEvent(CommonKeyConstant.COMMENT,dto.getCourseId(),CommonKeyConstant.COMMENT,reviewsVo.getRating());
+
                 return CourseResponseWrapper.getSuccess("评价提交成功，等待审核");
             } else {
                 return CourseResponseWrapper.getFailed("评价提交失败");
@@ -188,8 +179,8 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     public CourseResponseWrapper updateReview(ReviewsDto dto) {
         try {
             // 验证评价是否存在且属于该学生
-            ReviewsVo existingReview = getBaseMapper().selectById(dto.getId());
-            if (existingReview == null) {
+            ReviewsVo existingReview = baseMapper.selectById(dto.getId());
+            if (ObjectUtil.isEmpty(existingReview)) {
                 return CourseResponseWrapper.getFailed("评价不存在");
             }
 
@@ -205,10 +196,10 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             // 更新后状态重置为待审核
             dto.setStatus("pending");
 
-            ReviewsVo updateVo = convertToVo(dto);
-            updateVo.setLud(DateTimeUtils.getCurrentDateTime());
-
-            int result = getBaseMapper().updateById(updateVo);
+            ReviewsVo updateVo = BeanConverter.dtoToVo(dto,ReviewsVo.class);
+            updateVo.setLuu(CurUserUtil.getUserId())
+                    .setLud(DateTimeUtils.getCurrentDateTime());
+            int result = baseMapper.updateById(updateVo);
             if (result > 0) {
                 return CourseResponseWrapper.getSuccess("评价更新成功，等待重新审核");
             } else {
@@ -225,8 +216,8 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     public CourseResponseWrapper deleteReview(Long reviewId, Long studentId) {
         try {
             // 验证评价是否存在且属于该学生
-            ReviewsVo existingReview = getBaseMapper().selectById(reviewId);
-            if (existingReview == null) {
+            ReviewsVo existingReview = baseMapper.selectById(reviewId);
+            if (ObjectUtil.isEmpty(existingReview)) {
                 return CourseResponseWrapper.getFailed("评价不存在");
             }
 
@@ -235,12 +226,13 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             }
 
             // 逻辑删除评价
-            LambdaUpdateWrapper<ReviewsVo> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(ReviewsVo::getId, reviewId)
+            LambdaUpdateWrapper<ReviewsVo> updateWrapper = new LambdaUpdateWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getId, reviewId)
                     .set(ReviewsVo::getStatus, "hidden")
+                    .set(ReviewsVo::getLuu, CurUserUtil.getUserId())
                     .set(ReviewsVo::getLud, DateTimeUtils.getCurrentDateTime());
 
-            int result = getBaseMapper().update(null, updateWrapper);
+            int result = baseMapper.update(null, updateWrapper);
             if (result > 0) {
                 return CourseResponseWrapper.getSuccess("评价删除成功");
             } else {
@@ -256,8 +248,8 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper auditReview(Long reviewId, String status, String auditRemark) {
         try {
-            ReviewsVo existingReview = getBaseMapper().selectById(reviewId);
-            if (existingReview == null) {
+            ReviewsVo existingReview = baseMapper.selectById(reviewId);
+            if (ObjectUtil.isEmpty(existingReview)) {
                 return CourseResponseWrapper.getFailed("评价不存在");
             }
 
@@ -265,27 +257,27 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             if (!Arrays.asList("approved", "rejected", "hidden").contains(status)) {
                 return CourseResponseWrapper.getFailed("无效的状态值");
             }
-
-            LambdaUpdateWrapper<ReviewsVo> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(ReviewsVo::getId, reviewId)
+            String currentDateTime = DateTimeUtils.getCurrentDateTime();
+            LambdaUpdateWrapper<ReviewsVo> updateWrapper = new LambdaUpdateWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getId, reviewId)
                     .set(ReviewsVo::getStatus, status)
-                    .set(ReviewsVo::getLud, DateTimeUtils.getCurrentDateTime());
+                    .set(ReviewsVo::getLuu, CurUserUtil.getUserId())
+                    .set(ReviewsVo::getLud, currentDateTime);
 
             // 如果有审核备注，可以存储在metadata字段中
-            if (auditRemark != null && !auditRemark.trim().isEmpty()) {
-                String metadata = existingReview.getMetadata();
+            if (StrUtil.isNotEmpty(auditRemark)) {
+                Object metadata = JSON.parse(existingReview.getMetadata());
                 Map<String, Object> metadataMap = new HashMap<>();
-                if (metadata != null && !metadata.isEmpty()) {
-                    // 这里需要根据实际的metadata格式进行解析
-                    // 假设是JSON格式
+                if (ObjectUtil.isNotEmpty(metadata)) {
+                    metadataMap = (Map<String, Object>) metadata;
                 }
                 metadataMap.put("auditRemark", auditRemark);
-                metadataMap.put("auditTime", DateTimeUtils.getCurrentDateTime());
+                metadataMap.put("auditTime", currentDateTime);
                 // 将metadataMap转换为JSON字符串
-                // updateWrapper.set(ReviewsVo::getMetadata, JSON.toJSONString(metadataMap));
+                 updateWrapper.set(ReviewsVo::getMetadata, JSON.toJSONString(metadataMap));
             }
 
-            int result = getBaseMapper().update(null, updateWrapper);
+            int result = baseMapper.update(null, updateWrapper);
             if (result > 0) {
                 return CourseResponseWrapper.getSuccess("审核操作成功");
             } else {
@@ -298,65 +290,19 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
     }
 
     @Override
-    public CourseResponseWrapper getHotReviews(Integer limit) {
-        try {
-            int queryLimit = limit == null ? 10 : Math.min(limit, 50); // 限制最大数量
-
-            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(ReviewsVo::getStatus, "approved")
-                    .orderByDesc(ReviewsVo::getLikeCount)
-                    .orderByDesc(ReviewsVo::getUsefulCount)
-                    .last("LIMIT " + queryLimit);
-
-            List<ReviewsVo> hotReviews = getBaseMapper().selectList(queryWrapper);
-
-            // 处理匿名评价
-            List<ReviewsVo> processedReviews = hotReviews.stream()
-                    .map(this::processAnonymousReview)
-                    .collect(Collectors.toList());
-
-            return CourseResponseWrapper.getSuccess(processedReviews);
-        } catch (Exception e) {
-            log.error("获取热门评价失败", e);
-            return CourseResponseWrapper.getFailed("获取热门评价失败");
-        }
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public CourseResponseWrapper incrementViewCount(Long reviewId) {
-        try {
-            LambdaUpdateWrapper<ReviewsVo> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(ReviewsVo::getId, reviewId)
-                    .setSql("view_count = view_count + 1")
-                    .set(ReviewsVo::getLud, DateTimeUtils.getCurrentDateTime());
-
-            int result = getBaseMapper().update(null, updateWrapper);
-            if (result > 0) {
-                return CourseResponseWrapper.getSuccess("浏览量增加成功");
-            } else {
-                return CourseResponseWrapper.getFailed("评价不存在");
-            }
-        } catch (Exception e) {
-            log.error("增加评价浏览量失败: reviewId={}", reviewId, e);
-            return CourseResponseWrapper.getFailed("操作失败");
-        }
-    }
-
-    @Override
     public CourseResponseWrapper checkReviewExists(Long courseId, Long studentId) {
         try {
-            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(ReviewsVo::getCourseId, courseId)
+            LambdaQueryWrapper<ReviewsVo> queryWrapper = new LambdaQueryWrapper<ReviewsVo>()
+                    .eq(ReviewsVo::getCourseId, courseId)
                     .eq(ReviewsVo::getStudentId, studentId)
                     .ne(ReviewsVo::getStatus, "hidden"); // 排除已隐藏的评价
 
-            long count = getBaseMapper().selectCount(queryWrapper);
+            long count = baseMapper.selectCount(queryWrapper);
 
             Map<String, Object> result = new HashMap<>();
             result.put("exists", count > 0);
             if (count > 0) {
-                ReviewsVo review = getBaseMapper().selectOne(queryWrapper);
+                ReviewsVo review = baseMapper.selectOne(queryWrapper);
                 result.put("reviewId", review.getId());
                 result.put("status", review.getStatus());
             }
@@ -389,7 +335,6 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             Map<String, Object> detail = new HashMap<>();
             detail.put("review", review);
             detail.put("replyCount", replyCount);
-            detail.put("interactionStats", getInteractionStats(reviewId));
 
             return CourseResponseWrapper.getSuccess(detail);
         } catch (Exception e) {
@@ -408,71 +353,5 @@ public class ReviewsImpl extends BaseImpl<ReviewsDao, ReviewsVo, ReviewsDto> imp
             // 可以根据需要隐藏其他敏感信息
         }
         return review;
-    }
-
-    /**
-     * 获取互动统计
-     */
-    private Map<String, Object> getInteractionStats(Long reviewId) {
-        Map<String, Object> stats = new HashMap<>();
-
-        try {
-            // 获取点赞相关的互动统计
-            LambdaQueryWrapper<InteractionsVo> likeWrapper = new LambdaQueryWrapper<>();
-            likeWrapper.eq(InteractionsVo::getTargetType, "review")
-                    .eq(InteractionsVo::getTargetId, reviewId)
-                    .eq(InteractionsVo::getInteractionType, "like");
-            long likeCount = interactionsDao.selectCount(likeWrapper);
-            stats.put("likeCount", likeCount);
-
-            // 获取有用相关的互动统计
-            LambdaQueryWrapper<InteractionsVo> usefulWrapper = new LambdaQueryWrapper<>();
-            usefulWrapper.eq(InteractionsVo::getTargetType, "review")
-                    .eq(InteractionsVo::getTargetId, reviewId)
-                    .eq(InteractionsVo::getInteractionType, "useful");
-            long usefulCount = interactionsDao.selectCount(usefulWrapper);
-            stats.put("usefulCount", usefulCount);
-
-        } catch (Exception e) {
-            log.error("获取互动统计失败: reviewId={}", reviewId, e);
-        }
-
-        return stats;
-    }
-
-    /**
-     * DTO转VO
-     */
-    private ReviewsVo convertToVo(ReviewsDto dto) {
-        if (dto == null) {
-            return null;
-        }
-
-        ReviewsVo vo = new ReviewsVo();
-        vo.setId(dto.getId());
-        vo.setCourseId(dto.getCourseId());
-        vo.setStudentId(dto.getStudentId());
-        vo.setTitle(dto.getTitle());
-        vo.setOverallRating(dto.getOverallRating());
-        vo.setDimensionRatings(dto.getDimensionRatings());
-        vo.setComment(dto.getComment());
-        vo.setRecommended(dto.getRecommended());
-        vo.setSemester(dto.getSemester());
-        vo.setGradeReceived(dto.getGradeReceived());
-        vo.setDifficultyLevel(dto.getDifficultyLevel());
-        vo.setWorkloadLevel(dto.getWorkloadLevel());
-        vo.setAnonymous(dto.getAnonymous());
-        vo.setLikeCount(dto.getLikeCount());
-        vo.setUsefulCount(dto.getUsefulCount());
-        vo.setReplyCount(dto.getReplyCount());
-        vo.setViewCount(dto.getViewCount());
-        vo.setReportCount(dto.getReportCount());
-        vo.setStatus(dto.getStatus());
-        vo.setReviewTags(dto.getReviewTags());
-        vo.setMetadata(dto.getMetadata());
-        vo.setCru(dto.getCru());
-        vo.setLuu(dto.getLuu());
-
-        return vo;
     }
 }

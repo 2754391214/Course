@@ -12,5 +12,4 @@ public class CourseBasicInfoDto {
     private String courseName;
     private String teacherName;
     private String department;
-
 }

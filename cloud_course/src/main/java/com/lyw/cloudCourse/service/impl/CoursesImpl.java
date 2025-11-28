@@ -32,6 +32,10 @@ public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> imp
     @Resource
     private CoursesDao coursesDao;
     @Override
+    public CourseResponseWrapper findById(Long id){
+        return CourseResponseWrapper.getSuccess(baseMapper.selectAllDataById(id));
+    }
+    @Override
     public CourseResponseWrapper getPopularCourses(Integer limit, String semester) {
         return CourseResponseWrapper.getSuccess(coursesDao.selectPopularCourses(limit,semester,null));
     }
@@ -47,41 +51,28 @@ public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> imp
         try {
             log.info("开始增加课程选课人数: courseId={}", courseId);
 
-            // 1. 验证课程是否存在
-            CoursesVo course = coursesDao.selectById(courseId);
-            if (ObjectUtil.isEmpty(course)) {
-                log.warn("课程不存在: courseId={}", courseId);
-                return CourseResponseWrapper.getFailed("课程不存在");
-            }
-
-            // 2. 检查课程状态
-            if (!"PUBLISHED".equals(course.getStatus())) {
-                log.warn("课程状态不可选课: courseId={}, status={}", courseId, course.getStatus());
-                return CourseResponseWrapper.getFailed("课程当前不可选课");
-            }
-
-            // 3. 检查课程容量
-            if (course.getEnrolledCount() >= course.getCapacity()) {
-                log.warn("课程容量已满: courseId={}, capacity={}, enrolledCount={}",
-                        courseId, course.getCapacity(), course.getEnrolledCount());
-                return CourseResponseWrapper.getFailed("课程容量已满");
-            }
-
-            // 4. 更新选课人数
-            int newEnrolledCount = course.getEnrolledCount() + 1;
-            course.setEnrolledCount(newEnrolledCount);
-            int updateResult = coursesDao.updateById(course);
-
+            int updateResult = coursesDao.updateEnrolledCountAtomically(courseId);
             if (updateResult <= 0) {
-                log.error("更新课程选课人数失败: courseId={}", courseId);
-                return CourseResponseWrapper.getFailed("更新选课人数失败");
-            }
+                log.warn("增加选课人数失败，可能课程不存在、已满或状态不可用: courseId={}", courseId);
 
-            log.info("成功增加课程选课人数: courseId={}, 新人数={}", courseId, newEnrolledCount);
+                // 获取最新课程信息以确定具体失败原因
+                CoursesVo currentCourse = coursesDao.selectById(courseId);
+                if (ObjectUtil.isEmpty(currentCourse)) {
+                    return CourseResponseWrapper.getFailed("课程不存在");
+                }
+                if (!"PUBLISHED".equals(currentCourse.getStatus())) {
+                    return CourseResponseWrapper.getFailed("课程当前不可选课");
+                }
+                if (currentCourse.getEnrolledCount() >= currentCourse.getCapacity()) {
+                    return CourseResponseWrapper.getFailed("课程容量已满");
+                }
+                return CourseResponseWrapper.getFailed("选课失败，请重试");
+            }
+            log.info("成功增加课程选课人数: courseId={}", courseId);
 
             // 返回更新后的课程信息
             CoursesVo updatedCourse = coursesDao.selectById(courseId);
-            return CourseResponseWrapper.getSuccess("增加选课人数成功", updatedCourse);
+            return CourseResponseWrapper.getSuccess("减少选课人数成功", updatedCourse);
 
         } catch (Exception e) {
             log.error("增加课程选课人数异常: courseId={}", courseId, e);
@@ -95,30 +86,22 @@ public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> imp
         try {
             log.info("开始减少课程选课人数: courseId={}", courseId);
 
-            // 1. 验证课程是否存在
-            CoursesVo course = coursesDao.selectById(courseId);
-            if (course == null) {
-                log.warn("课程不存在: courseId={}", courseId);
-                return CourseResponseWrapper.getFailed("课程不存在");
-            }
-
-            // 2. 检查当前选课人数
-            if (course.getEnrolledCount() <= 0) {
-                log.warn("课程选课人数已为0: courseId={}", courseId);
-                return CourseResponseWrapper.getFailed("课程选课人数已为0，无法减少");
-            }
-
-            // 3. 更新选课人数
-            int newEnrolledCount = course.getEnrolledCount() - 1;
-            course.setEnrolledCount(newEnrolledCount);
-            int updateResult = coursesDao.updateById(course);
+            int updateResult = coursesDao.decrementEnrolledCountAtomically(courseId);
 
             if (updateResult <= 0) {
-                log.error("更新课程选课人数失败: courseId={}", courseId);
-                return CourseResponseWrapper.getFailed("更新选课人数失败");
+                log.warn("减少选课人数失败: courseId={}", courseId);
+
+                CoursesVo currentCourse = coursesDao.selectById(courseId);
+                if (currentCourse == null) {
+                    return CourseResponseWrapper.getFailed("课程不存在");
+                }
+                if (currentCourse.getEnrolledCount() <= 0) {
+                    return CourseResponseWrapper.getFailed("课程选课人数已为0，无法减少");
+                }
+                return CourseResponseWrapper.getFailed("减少选课人数失败");
             }
 
-            log.info("成功减少课程选课人数: courseId={}, 新人数={}", courseId, newEnrolledCount);
+            log.info("成功减少课程选课人数: courseId={}", courseId);
 
             // 返回更新后的课程信息
             CoursesVo updatedCourse = coursesDao.selectById(courseId);

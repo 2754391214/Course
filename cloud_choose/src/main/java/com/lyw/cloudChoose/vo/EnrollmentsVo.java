@@ -44,20 +44,6 @@ public class EnrollmentsVo extends BaseVo {
     @TableField(value = "enrollment_type")
     private String enrollmentType;
 
-    @ApiModelProperty("选课状态：PENDING-待处理, SUCCESS-成功, FAILED-失败, DROPPED-已退课, WAITING-等待中")
-    @TableField(value = "status")
-    private String status;
-
-    @ApiModelProperty("选课来源：WEB, APP, ADMIN等")
-    @TableField(value = "enrollment_source")
-    private String enrollmentSource;
-
-    @ApiModelProperty("选课时间")
-    @TableField(value = "enrolled_at")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date enrolledAt;
-
     @ApiModelProperty("选课批准时间")
     @TableField(value = "approved_at")
     @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")

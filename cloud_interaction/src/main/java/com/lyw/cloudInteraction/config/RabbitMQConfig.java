@@ -1,5 +1,7 @@
 package com.lyw.cloudInteraction.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -10,19 +12,18 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Configuration
 public class RabbitMQConfig {
-    // 用户行为相关交换器和路由键（与推荐模块保持一致）
-    public static final String USER_BEHAVIOR_EXCHANGE = "user.behavior.exchange";
-    public static final String USER_BEHAVIOR_ROUTING_KEY = "user.behavior.routing.key";
     /**
      * JSON消息转换器
      */
     @Bean
     public Jackson2JsonMessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule()); // 支持Java 8时间类型
+        return new Jackson2JsonMessageConverter(objectMapper);
     }
 
     /**
-     * RabbitTemplate 配置
+     * RabbitTemplate配置
      */
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {

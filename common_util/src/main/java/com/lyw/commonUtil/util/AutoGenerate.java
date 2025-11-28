@@ -28,19 +28,15 @@ public class AutoGenerate {
     public static void main(String[] args) {
         //参数说明：第一个参数为表名，第二模块名(Controller和Bo对应模块),第三为是否只创建Vo,Dto和Dao,第四为是否只创建的模块的路径名
         ArrayList<String> tableArr = new ArrayList<>();
-        tableArr.add("user");
-        tableArr.add("user_auth");
-        tableArr.add("student_profile");
-        tableArr.add("teacher_profile");
-        tableArr.add("user_preference");
+        tableArr.add("local_message");
         tableArr.forEach(it->{
-            generate(it, "cloudMember",false, "cloud_member");
+            generate(it, "cloudChoose",true, "cloud_choose");
         });
     }
     /**
      * 数据源信息
      */
-    public static String URL = "jdbc:mysql://110.42.233.169:3306/cloud_member?useUnicode=true&characterEncoding=utf-8&serverTimezone=GMT%2B8";
+    public static String URL = "jdbc:mysql://110.42.233.169:3306/cloud_choose?useUnicode=true&characterEncoding=utf-8&serverTimezone=GMT%2B8";
     public static String USERNAME = "lyw";
     public static String PASSWORD = "li15907354492@";
     /**

@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 @Slf4j
 public class CurUserUtil {
 
-    public static final String finalUser = "Machine";
+    public static final String finalUser = "1";
 
     // 注意：这里不能直接注入，因为这是静态工具类
     private static RedisTemplate<String, Object> redisTemplate;
@@ -41,7 +41,7 @@ public class CurUserUtil {
         HttpServletRequest request = getRequest();
         if (request != null) {
             String userId = request.getHeader("X-User-Id");
-            if (StrUtil.isNotBlank(userId)) {
+            if (StrUtil.isNotEmpty(userId)) {
                 return userId;
             }
         }
@@ -82,13 +82,13 @@ public class CurUserUtil {
         HttpServletRequest request = getRequest();
         if (request != null) {
             String token = request.getHeader("X-User-Token");
-            if (StrUtil.isNotBlank(token)) {
+            if (StrUtil.isNotEmpty(token)) {
                 return token;
             }
 
             // 如果X-User-Token没有，尝试从Authorization头获取
             String authHeader = request.getHeader("Authorization");
-            if (StrUtil.isNotBlank(authHeader) && authHeader.startsWith("Bearer ")) {
+            if (StrUtil.isNotEmpty(authHeader) && authHeader.startsWith("Bearer ")) {
                 return authHeader.substring(7);
             }
         }
@@ -128,7 +128,7 @@ public class CurUserUtil {
      */
     public static boolean isLogin() {
         String userId = getUserId();
-        return !finalUser.equals(userId) && StrUtil.isNotBlank(userId);
+        return !finalUser.equals(userId) && StrUtil.isNotEmpty(userId);
     }
 
     /**

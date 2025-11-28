@@ -61,4 +61,11 @@ public class CourseSchedulesImpl extends BaseImpl<CourseSchedulesDao, CourseSche
             return CourseResponseWrapper.getFailed("系统异常，请稍后重试");
         }
     }
+
+    @Override
+    public CourseResponseWrapper batchGetCourseSchedules(List<Long> courseIds) {
+        return CourseResponseWrapper.getSuccess(courseSchedulesDao.selectList(
+                new LambdaQueryWrapper<CourseSchedulesVo>()
+                        .in(CourseSchedulesVo::getCourseId, courseIds)));
+    }
 }

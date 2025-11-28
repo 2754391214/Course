@@ -1,6 +1,6 @@
 package com.lyw.cloudRanking.service;
 
-import com.lyw.cloudRanking.dto.HeatEventMessage;
+import com.lyw.commonUtil.message.HeatEventMessage;
 
 import java.util.Map;
 
@@ -17,8 +17,4 @@ public interface HeatCalculateService {
      */
     void updateCourseHeat(Long courseId, double increment);
 
-    /**
-     * 批量更新热度
-     */
-    void batchUpdateHeat(Map<Long, Double> heatUpdates);
 }

@@ -1,14 +1,13 @@
 package com.lyw.cloudInteraction.controller;
 
+import com.lyw.cloudInteraction.dto.ReviewsDto;
+import com.lyw.cloudInteraction.service.ReviewsBo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import com.lyw.cloudInteraction.service.ReviewsBo;
-import com.lyw.cloudInteraction.dto.ReviewsDto;
-import com.lyw.commonUtil.controller.BaseController;
 
 /**
  * <p>
@@ -21,26 +20,18 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 评价表")
 @RestController
-@RequestMapping("Reviews")
-public class ReviewsController extends BaseController<ReviewsDto> {
+@RequestMapping("reviews")
+public class ReviewsController {
 
     private final ReviewsBo service;
-
-    @Override
-    public ReviewsBo getBaseService() {
-        return service;
-    }
     /**
      * 根据课程ID获取评价列表
      */
     @ApiOperation("根据课程ID获取评价列表")
     @GetMapping("/courses/{courseId}")
-    public CourseResponseWrapper getReviewsByCourseId(
-            @PathVariable Long courseId,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String sort) {
-        return service.getReviewsByCourseId(courseId, page, size, sort);
+    public CourseResponseWrapper getReviewsByCourseId(@PathVariable Long courseId,ReviewsDto dto) {
+        dto.setCourseId(courseId);
+        return service.getReviewsByCourseId(dto);
     }
 
     /**
@@ -48,11 +39,9 @@ public class ReviewsController extends BaseController<ReviewsDto> {
      */
     @ApiOperation("根据学生ID获取评价列表")
     @GetMapping("/students/{studentId}")
-    public CourseResponseWrapper getReviewsByStudentId(
-            @PathVariable Long studentId,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return service.getReviewsByStudentId(studentId, page, size);
+    public CourseResponseWrapper getReviewsByStudentId(@PathVariable Long studentId,ReviewsDto dto) {
+        dto.setStudentId(studentId);
+        return service.getReviewsByStudentId(dto);
     }
 
     /**
@@ -78,9 +67,7 @@ public class ReviewsController extends BaseController<ReviewsDto> {
      */
     @ApiOperation("更新评价")
     @PutMapping("/{reviewId}")
-    public CourseResponseWrapper updateReview(
-            @PathVariable Long reviewId,
-            @RequestBody ReviewsDto dto) {
+    public CourseResponseWrapper updateReview(@PathVariable Long reviewId, @RequestBody ReviewsDto dto) {
         dto.setId(reviewId);
         return service.updateReview(dto);
     }
@@ -90,9 +77,7 @@ public class ReviewsController extends BaseController<ReviewsDto> {
      */
     @ApiOperation("删除评价")
     @DeleteMapping("/{reviewId}")
-    public CourseResponseWrapper deleteReview(
-            @PathVariable Long reviewId,
-            @RequestParam Long studentId) {
+    public CourseResponseWrapper deleteReview(@PathVariable Long reviewId, @RequestParam Long studentId) {
         return service.deleteReview(reviewId, studentId);
     }
 
@@ -101,40 +86,17 @@ public class ReviewsController extends BaseController<ReviewsDto> {
      */
     @ApiOperation("审核评价")
     @PutMapping("/{reviewId}/audit")
-    public CourseResponseWrapper auditReview(
-            @PathVariable Long reviewId,
-            @RequestParam String status,
-            @RequestParam(required = false) String auditRemark) {
+    public CourseResponseWrapper auditReview(@PathVariable Long reviewId, @RequestParam String status, @RequestParam(required = false) String auditRemark) {
         return service.auditReview(reviewId, status, auditRemark);
     }
 
-    /**
-     * 获取热门评价
-     */
-    @ApiOperation("获取热门评价")
-    @GetMapping("/hot")
-    public CourseResponseWrapper getHotReviews(
-            @RequestParam(required = false) Integer limit) {
-        return service.getHotReviews(limit);
-    }
-
-    /**
-     * 增加评价浏览量
-     */
-    @ApiOperation("增加评价浏览量")
-    @PostMapping("/{reviewId}/view")
-    public CourseResponseWrapper incrementViewCount(@PathVariable Long reviewId) {
-        return service.incrementViewCount(reviewId);
-    }
 
     /**
      * 检查学生是否已评价课程
      */
     @ApiOperation("检查学生是否已评价课程")
     @GetMapping("/check")
-    public CourseResponseWrapper checkReviewExists(
-            @RequestParam Long courseId,
-            @RequestParam Long studentId) {
+    public CourseResponseWrapper checkReviewExists(@RequestParam Long courseId, @RequestParam Long studentId) {
         return service.checkReviewExists(courseId, studentId);
     }
 

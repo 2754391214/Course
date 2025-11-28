@@ -3,6 +3,51 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lyw.cloudCourse.mapper.CoursesDao">
 
+    <resultMap id="CoursesMap" type="com.lyw.cloudCourse.vo.CoursesVo">
+        <id column="id" property="id"/>
+        <result column="code" property="code"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="credits" property="credits"/>
+        <result column="capacity" property="capacity"/>
+        <result column="enrolled_count" property="enrolledCount"/>
+        <result column="teacher_id" property="teacherId"/>
+        <result column="department_id" property="departmentId"/>
+        <result column="semester" property="semester"/>
+        <result column="course_type" property="courseType"/>
+        <result column="difficulty_level" property="difficultyLevel"/>
+        <result column="cover_image" property="coverImage"/>
+        <result column="assessment_method" property="assessmentMethod"/>
+        <result column="prerequisites" property="prerequisites"/>
+        <result column="tags" property="tags"/>
+        <result column="status" property="status"/>
+        <result column="metadata" property="metadata"/>
+        <collection property="courseSchedules" ofType="com.lyw.cloudCourse.vo.CourseSchedulesVo">
+            <id column="courseSchedulesId" property="id"/>
+            <result column="course_id" property="courseId"/>
+            <result column="day_of_week" property="dayOfWeek"/>
+            <result column="start_time" property="startTime"/>
+            <result column="end_time" property="endTime"/>
+            <result column="location" property="location"/>
+            <result column="schedule_type" property="scheduleType"/>
+            <result column="metadata" property="metadata"/>
+        </collection>
+    </resultMap>
+
+    <update id="decrementEnrolledCountAtomically">
+        UPDATE courses SET enrolled_count = enrolled_count - 1
+        WHERE id = #{courseId}
+          AND status = 'PUBLISHED'
+          AND enrolled_count > 0
+    </update>
+
+    <update id="updateEnrolledCountAtomically">
+        UPDATE courses SET enrolled_count = enrolled_count + 1
+        WHERE id = #{courseId}
+          AND status = 'PUBLISHED'
+          AND enrolled_count <![CDATA[ < ]]> capacity
+    </update>
+
     <select id="selectPopularCourses" resultType="com.lyw.cloudCourse.vo.CoursesVo">
         SELECT c.*, cs.hot_score
         FROM courses c
@@ -23,5 +68,19 @@
                  LEFT JOIN course_category_relations ccr ON c.id = ccr.course_id
                  LEFT JOIN course_categories cc ON cc.id = ccr.category_id
             ${ew.customSqlSegment}
+    </select>
+    <select id="selectAllDataById" resultMap="CoursesMap">
+        select c.*,
+               cs.id as courseSchedulesId,
+               cs.course_id,
+               cs.day_of_week,
+               cs.start_time,
+               cs.end_time,
+               cs.location,
+               cs.schedule_type,
+               cs.metadata
+        from courses c
+                 LEFT JOIN course_schedules cs ON c.id = cs.course_id
+        WHERE c.id = #{id}
     </select>
 </mapper>

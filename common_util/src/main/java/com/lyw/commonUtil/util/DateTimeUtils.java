@@ -284,7 +284,7 @@ public class DateTimeUtils {
         ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
         // 格式化为字符串（年月日 时:分:秒）
         String formattedDate = DateTimeFormatter
-                .ofPattern(StrUtil.isNotBlank(pattern)?pattern:"yyyy-MM-dd HH:mm:ss")
+                .ofPattern(StrUtil.isNotEmpty(pattern)?pattern:"yyyy-MM-dd HH:mm:ss")
                 .format(zonedDateTime);
         return formattedDate;
     }

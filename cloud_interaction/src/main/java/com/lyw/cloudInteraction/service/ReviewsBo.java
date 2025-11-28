@@ -1,9 +1,9 @@
 package com.lyw.cloudInteraction.service;
 
-import com.lyw.cloudInteraction.vo.ReviewsVo;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.lyw.cloudInteraction.dto.ReviewsDto;
+import com.lyw.cloudInteraction.vo.ReviewsVo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseBo;
 
 /**
  * <p>
@@ -13,10 +13,10 @@ import com.lyw.commonUtil.service.BaseBo;
  * @author lyw
  * @since 2025/10/29
  */
-public interface ReviewsBo extends BaseBo<ReviewsVo,ReviewsDto> {
-    CourseResponseWrapper getReviewsByCourseId(Long courseId, Integer page, Integer size, String sort);
+public interface ReviewsBo extends IService<ReviewsVo> {
+    CourseResponseWrapper getReviewsByCourseId(ReviewsDto dto);
 
-    CourseResponseWrapper getReviewsByStudentId(Long studentId, Integer page, Integer size);
+    CourseResponseWrapper getReviewsByStudentId(ReviewsDto dto);
 
     CourseResponseWrapper getCourseReviewStatistics(Long courseId);
 
@@ -27,10 +27,6 @@ public interface ReviewsBo extends BaseBo<ReviewsVo,ReviewsDto> {
     CourseResponseWrapper deleteReview(Long reviewId, Long studentId);
 
     CourseResponseWrapper auditReview(Long reviewId, String status, String auditRemark);
-
-    CourseResponseWrapper getHotReviews(Integer limit);
-
-    CourseResponseWrapper incrementViewCount(Long reviewId);
 
     CourseResponseWrapper checkReviewExists(Long courseId, Long studentId);
 

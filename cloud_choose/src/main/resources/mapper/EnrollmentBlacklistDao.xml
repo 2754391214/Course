@@ -9,6 +9,7 @@
         AND status = 'ACTIVE'
         AND (start_time IS NULL OR start_time <![CDATA[ <= ]]> NOW())
         AND (end_time IS NULL OR end_time <![CDATA[ >= ]]> NOW())
+        AND (course_id = #{courseId} OR course_id is NULL)
         ORDER BY id DESC
         LIMIT 1
     </select>

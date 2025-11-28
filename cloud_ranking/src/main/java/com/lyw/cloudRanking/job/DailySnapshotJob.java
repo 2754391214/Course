@@ -1,18 +1,18 @@
 package com.lyw.cloudRanking.job;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.lyw.cloudRanking.service.CourseHeatDailyBo;
-import com.lyw.cloudRanking.service.RankingQueryService;
 import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
-import com.lyw.commonUtil.util.DateTimeUtils;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.util.CurUserUtil;
+import com.lyw.commonUtil.util.DateTimeUtils;
+import com.lyw.commonUtil.util.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Set;
@@ -21,16 +21,10 @@ import java.util.Set;
 @Component
 public class DailySnapshotJob {
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Autowired
+    @Resource
     private CourseHeatDailyBo courseHeatDailyBo;
-
-    @Autowired
-    private RankingQueryService rankingQueryService;
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private RedisUtils redisUtils;
     /**
      * 每日凌晨生成热度快照
      */
@@ -39,11 +33,9 @@ public class DailySnapshotJob {
         log.info("开始生成每日热度快照");
 
         try {
-            String rankingKey = "ranking:course:heat";
-            Set<ZSetOperations.TypedTuple<String>> tuples = stringRedisTemplate.opsForZSet()
-                    .reverseRangeWithScores(rankingKey, 0, -1);
+            Set<ZSetOperations.TypedTuple<Object>> tuples = redisUtils.reverseRangeWithScores(RedisKeyConstant.RANKING_COURSE_HEAT, 0, -1);
 
-            if (tuples == null) {
+            if (CollectionUtil.isEmpty(tuples)) {
                 log.warn("没有找到排行榜数据");
                 return;
             }
@@ -51,8 +43,8 @@ public class DailySnapshotJob {
             Date snapshotDate = new Date();
             int rank = 1;
 
-            for (ZSetOperations.TypedTuple<String> tuple : tuples) {
-                Long courseId = Long.valueOf(tuple.getValue());
+            for (ZSetOperations.TypedTuple<Object> tuple : tuples) {
+                Long courseId = (Long) tuple.getValue();
                 Double heatScore = tuple.getScore();
 
                 // 保存每日快照
@@ -62,7 +54,7 @@ public class DailySnapshotJob {
                         .setHeatDate(snapshotDate)
                         .setTotalHeat(BigDecimal.valueOf(heatScore))
                         .setDailyRank(rank);
-                daily.setCruAndLuu(CurUserUtil.getUserCode());
+                daily.setCruAndLuu(CurUserUtil.getUserId());
                 daily.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
 
                 courseHeatDailyBo.save(daily);

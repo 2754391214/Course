@@ -19,7 +19,7 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 课程热度日快照表")
 @RestController
-@RequestMapping("CourseHeatDaily")
+@RequestMapping("courseHeatDaily")
 public class CourseHeatDailyController extends BaseController<CourseHeatDailyDto> {
 
     private final CourseHeatDailyBo service;

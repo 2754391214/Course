@@ -19,7 +19,7 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 排行榜配置表")
 @RestController
-@RequestMapping("RankingConfig")
+@RequestMapping("rankingConfig")
 public class RankingConfigController extends BaseController<RankingConfigDto> {
 
     private final RankingConfigBo service;

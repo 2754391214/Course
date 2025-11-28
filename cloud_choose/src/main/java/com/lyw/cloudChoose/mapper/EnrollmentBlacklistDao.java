@@ -18,5 +18,5 @@ import java.util.List;
 @Mapper
 public interface EnrollmentBlacklistDao extends BaseMapper<EnrollmentBlacklistVo> {
 
-    EnrollmentBlacklistVo selectByStudentId(@Param("studentId") Long studentId);
+    EnrollmentBlacklistVo selectByStudentId(@Param("studentId") Long studentId,@Param("courseId") Long courseId);
 }

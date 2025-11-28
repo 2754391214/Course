@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 选课等待列表")
 @RestController
-@RequestMapping("Waitlists")
+@RequestMapping("waitlists")
 public class WaitlistsController {
 
     private final WaitlistsBo service;

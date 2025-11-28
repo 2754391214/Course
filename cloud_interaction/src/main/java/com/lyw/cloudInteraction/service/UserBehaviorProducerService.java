@@ -1,7 +1,7 @@
 package com.lyw.cloudInteraction.service;
 
-import com.lyw.cloudInteraction.config.RabbitMQConfig;
 import com.lyw.cloudInteraction.dto.UserBehaviorMessage;
+import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,14 +93,15 @@ public class UserBehaviorProducerService {
      * 创建用户行为消息
      */
     private UserBehaviorMessage createUserBehaviorMessage(Long userId, Long courseId, String behaviorType, BigDecimal weight) {
-        return new UserBehaviorMessage()
-                .setMessageId(UUID.randomUUID().toString())
-                .setUserId(userId)
-                .setCourseId(courseId)
-                .setBehaviorType(behaviorType)
-                .setBehaviorWeight(weight)
-                .setBehaviorTime(new Date())
-                .setCreateTime(new Date());
+        UserBehaviorMessage userBehaviorMessage = new UserBehaviorMessage();
+        userBehaviorMessage.setMessageId(UUID.randomUUID().toString());
+        userBehaviorMessage.setUserId(userId);
+        userBehaviorMessage.setCourseId(courseId);
+        userBehaviorMessage.setBehaviorType(behaviorType);
+        userBehaviorMessage.setBehaviorWeight(weight);
+        userBehaviorMessage.setBehaviorTime(new Date());
+        userBehaviorMessage.setCreateTime(new Date());
+        return userBehaviorMessage;
     }
 
     /**
@@ -124,8 +125,8 @@ public class UserBehaviorProducerService {
     private void sendMessage(UserBehaviorMessage message) {
         try {
             rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.USER_BEHAVIOR_EXCHANGE,
-                    RabbitMQConfig.USER_BEHAVIOR_ROUTING_KEY,
+                    RabbitmqKeyConstant.USER_BEHAVIOR_EXCHANGE,
+                    RabbitmqKeyConstant.USER_BEHAVIOR_ROUTING_KEY,
                     message
             );
         } catch (Exception e) {

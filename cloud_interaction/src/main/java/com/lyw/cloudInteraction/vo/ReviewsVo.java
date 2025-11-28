@@ -1,21 +1,15 @@
 package com.lyw.cloudInteraction.vo;
 
-import com.lyw.commonUtil.vo.BaseVo;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.activerecord.Model;
-import java.math.BigDecimal;
-import java.util.Date;
-import java.util.List;
-
-import io.swagger.annotations.ApiModel;
+import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.experimental.Accessors;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * <p>
@@ -26,7 +20,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/29
  */
 @Data
-@Accessors(chain = true)
 @TableName("reviews")
 public class ReviewsVo extends BaseVo {
 
@@ -82,26 +75,6 @@ public class ReviewsVo extends BaseVo {
     @TableField(value = "is_anonymous")
     private Boolean anonymous;
 
-    @ApiModelProperty("点赞数")
-    @TableField(value = "like_count")
-    private Integer likeCount;
-
-    @ApiModelProperty("有用数")
-    @TableField(value = "useful_count")
-    private Integer usefulCount;
-
-    @ApiModelProperty("回复数")
-    @TableField(value = "reply_count")
-    private Integer replyCount;
-
-    @ApiModelProperty("浏览数")
-    @TableField(value = "view_count")
-    private Integer viewCount;
-
-    @ApiModelProperty("被举报次数")
-    @TableField(value = "report_count")
-    private Integer reportCount;
-
     @ApiModelProperty("评价状态：pending-待审核,approved-已审核,rejected-已拒绝,hidden-已隐藏")
     @TableField(value = "status")
     private String status;
@@ -114,22 +87,27 @@ public class ReviewsVo extends BaseVo {
     @TableField(value = "metadata")
     private String metadata;
 
-
+    @ApiModelProperty("总评分")
     @TableField(exist = false)
     private Integer totalReviews;
 
+    @ApiModelProperty("平均评分")
     @TableField(exist = false)
     private BigDecimal averageRating;
 
+    @ApiModelProperty("推荐率")
     @TableField(exist = false)
     private BigDecimal recommendRate;
 
+    @ApiModelProperty("评分")
     @TableField(exist = false)
-    private BigDecimal rating;
+    private Double rating;
 
+    @ApiModelProperty("评分人数")
     @TableField(exist = false)
     private Integer count;
 
+    @ApiModelProperty("评分人数百分比")
     @TableField(exist = false)
     private BigDecimal percentage;
 

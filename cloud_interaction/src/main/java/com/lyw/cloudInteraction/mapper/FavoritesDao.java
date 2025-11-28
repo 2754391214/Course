@@ -1,7 +1,7 @@
 package com.lyw.cloudInteraction.mapper;
 
-import com.lyw.cloudInteraction.vo.FavoritesVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.lyw.cloudInteraction.vo.FavoritesVo;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -14,5 +14,4 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface FavoritesDao extends BaseMapper<FavoritesVo> {
-
 }

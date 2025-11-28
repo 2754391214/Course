@@ -7,6 +7,6 @@
     <select id="selectEnrolledCourseIds" resultType="java.lang.Long">
         select course_id
         from enrollments
-        where student_id=#{studentId} and status in ('PENDING','SUCCESS','WAITING')
+        where student_id=#{studentId}
     </select>
 </mapper>

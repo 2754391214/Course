@@ -1,27 +1,34 @@
 package com.lyw.cloudInteraction.service.impl;
 
+import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.cloudInteraction.dto.FavoriteItemsDto;
 import com.lyw.cloudInteraction.mapper.FavoriteItemsDao;
-import com.lyw.cloudInteraction.mapper.FavoritesDao;
-import com.lyw.cloudInteraction.mapper.InteractionsDao;
 import com.lyw.cloudInteraction.service.FavoriteItemsBo;
+import com.lyw.cloudInteraction.service.HeatEventPublisher;
 import com.lyw.cloudInteraction.vo.FavoriteItemsVo;
-import com.lyw.cloudInteraction.vo.FavoritesVo;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseImpl;
-import com.lyw.commonUtil.util.DateTimeUtils;
+import com.lyw.commonUtil.util.BeanConverter;
 import com.lyw.commonUtil.util.CurUserUtil;
+import com.lyw.commonUtil.util.DateTimeUtils;
+import com.lyw.commonUtil.util.RedisUtils;
+import com.lyw.commonUtil.util.reidsCache.setCache.DistributedSetCacheHelper;
+import com.lyw.commonUtil.util.reidsCache.setCache.SetCacheConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -34,567 +41,256 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class FavoriteItemsImpl extends BaseImpl<FavoriteItemsDao, FavoriteItemsVo, FavoriteItemsDto> implements FavoriteItemsBo {
+public class FavoriteItemsImpl extends ServiceImpl<FavoriteItemsDao, FavoriteItemsVo> implements FavoriteItemsBo {
     @Resource
     private FavoriteItemsDao favoriteItemsDao;
     @Resource
-    private FavoritesDao favoritesDao;
+    private RedisUtils redisUtils;
     @Resource
-    private InteractionsDao interactionsDao;
+    private DistributedSetCacheHelper distributedSetCacheHelper;
+    @Resource
+    private HeatEventPublisher heatEventPublisher;
+    @Override
+    public CourseResponseWrapper addFavoriteItem(FavoriteItemsDto dto) {
+        Long targetId = dto.getTargetId();
+        String targetType = dto.getTargetType();
+        String userId = CurUserUtil.getUserId();
+        String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType);
+
+        FavoriteItemsVo favoriteItemsVo = BeanConverter.dtoToVo(dto,FavoriteItemsVo.class);
+        favoriteItemsVo.setCannelFavorite(false);
+        favoriteItemsVo.setCruAndLuu(userId);
+        favoriteItemsVo.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
+        redisUtils.hPut(RedisKeyConstant.SYNC_SAVE_FAVORITE,targetFavoriteKey+":"+userId,favoriteItemsVo);
+
+        // 使用 Set 记录用户收藏关系
+        Long result = redisUtils.sAdd(targetFavoriteKey, userId);
+        if (ObjectUtil.isNotEmpty(dto.getCourseId())) {
+            heatEventPublisher.publishEvent(targetType,dto.getCourseId(), CommonKeyConstant.FAVORITE,null);
+        }
+
+        if (result > 0) {
+            // 更新排行榜：增加收藏数 TODO 异步给排行榜
+            String rankKey = String.format(RedisKeyConstant.FAVORITE_ITEM_COUNT, targetType);
+            redisUtils.zIncrementScore(rankKey,  targetId.toString(),1);
+        }
+        return CourseResponseWrapper.getSuccess(result > 0 ? "收藏成功" : "已收藏");
+    }
+
+    @Override
+    public CourseResponseWrapper removeFavoriteItem(FavoriteItemsDto dto) {
+        Long targetId = dto.getTargetId();
+        String targetType = dto.getTargetType();
+        String userId = CurUserUtil.getUserId();
+        String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType);
+
+        FavoriteItemsVo favoriteItemsVo = new FavoriteItemsVo();
+        favoriteItemsVo.setTargetId(targetId);
+        favoriteItemsVo.setTargetType(targetType);
+        favoriteItemsVo.setCannelFavorite(true);
+        redisUtils.hPut(RedisKeyConstant.SYNC_SAVE_FAVORITE,targetFavoriteKey+":"+userId,favoriteItemsVo);
+
+        // 使用 Set 移除用户收藏关系
+        Long result = redisUtils.sRemove(targetFavoriteKey, userId);
+
+        if (result > 0) {
+            // 更新排行榜：减少收藏数 TODO 异步给排行榜
+            String rankKey = String.format(RedisKeyConstant.FAVORITE_ITEM_COUNT, targetType);
+            redisUtils.zIncrementScore(rankKey,targetId.toString(),-1);
+        }
+        return CourseResponseWrapper.getSuccess(result > 0 ? "取消收藏成功" : "未收藏");
+    }
+    @Override
+    public CourseResponseWrapper getFavoriteStatus(String targetType, Long targetId, Long userId) {
+        String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType);
+        String lockTargetFavoriteKey = String.format(RedisKeyConstant.LOCK_FAVORITE_ITEM, targetId, targetType);
+        Set<Long> targetCache = distributedSetCacheHelper.getOrLoad(
+                "",
+                new SetCacheConfig()
+                        .setCacheKeyPrefix(targetFavoriteKey)
+                        .setLockKeyPrefix(lockTargetFavoriteKey)
+                        .setCacheTimeout(30 * 60 * 1000L) // 30分钟
+                        .setNullValueTimeout(5 * 60 * 1000L) // 5分钟
+                        .setLockWaitTime(3000L)
+                        .setLockLeaseTime(10000L),
+                () -> {
+                    // 数据加载逻辑 - 从数据库查询并转换为Set
+                    return new HashSet<>(baseMapper.selectUserId(targetType, targetId));
+                },
+                Long.class
+        );
+        Map<String, Object> result = Collections.unmodifiableMap(
+                new HashMap<>() {{
+                    put("isFavorited", targetCache.contains(userId));
+                    put("favoritedCount", targetCache.size());
+                }}
+        );
+        return CourseResponseWrapper.getSuccess(result);
+    }
+
     @Override
     public CourseResponseWrapper getItemsByTarget(String targetType, Long targetId) {
+        return CourseResponseWrapper.getSuccess(favoriteItemsDao.selectList(
+                new LambdaQueryWrapper<FavoriteItemsVo>()
+                        .eq(FavoriteItemsVo::getTargetType, targetType)
+                        .eq(FavoriteItemsVo::getTargetId, targetId)
+                        .orderByDesc(FavoriteItemsVo::getCrd)));
+    }
+
+    public CourseResponseWrapper getFavoriteItems(Long favoriteId) {
+        // 并行执行数据库查询和Redis查询
+        Long userId = Long.valueOf(CurUserUtil.getUserId());
+        CompletableFuture<List<FavoriteItemsVo>> dbFuture = CompletableFuture.supplyAsync(() ->
+                favoriteItemsDao.selectList(
+                        new LambdaQueryWrapper<FavoriteItemsVo>()
+                                .eq(FavoriteItemsVo::getUserId, userId)
+                                .eq(FavoriteItemsVo::getFavoriteId, favoriteId)
+                ));
+
+        CompletableFuture<Map<String, FavoriteItemsVo>> redisFuture = CompletableFuture.supplyAsync(() ->
+                redisUtils.hGetAll(RedisKeyConstant.SYNC_SAVE_FAVORITE));
+
         try {
-            LambdaQueryWrapper<FavoriteItemsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(FavoriteItemsVo::getTargetType, targetType)
-                    .eq(FavoriteItemsVo::getTargetId, targetId)
-                    .orderByDesc(FavoriteItemsVo::getCrd);
-
-            List<FavoriteItemsVo> items = favoriteItemsDao.selectList(queryWrapper);
-
-            // 转换为DTO
-            List<FavoriteItemsDto> result = items.stream()
-                    .map(this::convertToDto)
-                    .collect(Collectors.toList());
-
-            return CourseResponseWrapper.getSuccess(result);
-        } catch (Exception e) {
-            log.error("根据目标查询收藏项失败: targetType={}, targetId={}", targetType, targetId, e);
-            return CourseResponseWrapper.getFailed("查询失败");
+            // 等待两个任务都完成，然后合并结果
+            return dbFuture.thenCombine(redisFuture, (dbFavorites, pendingData) ->
+                            mergeFavoriteData(userId, dbFavorites, pendingData))  // 传递userId
+                    .thenApply(CourseResponseWrapper::getSuccess)
+                    .get(3, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            log.warn("Parallel query failed, fallback to sequential query", e);
+            return fallbackSequentialQuery(userId, favoriteId);
         }
     }
 
-    @Override
-    public CourseResponseWrapper getUserFavoriteItems(Long userId) {
-        try {
-            // 查询用户的所有收藏夹
-            LambdaQueryWrapper<FavoritesVo> favoritesQuery = new LambdaQueryWrapper<>();
-            favoritesQuery.eq(FavoritesVo::getUserId, userId);
-            List<FavoritesVo> favorites = favoritesDao.selectList(favoritesQuery);
+    /**
+     * 合并数据库和Redis的收藏数据
+     */
+    private List<FavoriteItemsVo> mergeFavoriteData(Long userId, List<FavoriteItemsVo> dbFavorites, Map<String, FavoriteItemsVo> pendingData) {
+        if (CollectionUtils.isEmpty(dbFavorites)) {
+            dbFavorites = new ArrayList<>();
+        }
 
-            if (CollectionUtils.isEmpty(favorites)) {
-                return CourseResponseWrapper.getSuccess(Collections.emptyList());
-            }
+        if (CollectionUtils.isEmpty(pendingData)) {
+            return dbFavorites;
+        }
 
-            // 获取所有收藏夹ID
-            List<Long> favoriteIds = favorites.stream()
-                    .map(FavoritesVo::getId)
+        // 过滤出当前用户的待同步数据，传递userId
+        List<FavoriteItemsVo> userPendingData = extractUserPendingData(userId, pendingData);
+
+        if (CollectionUtils.isEmpty(userPendingData)) {
+            return dbFavorites;
+        }
+
+        // 分离删除和新增操作
+        Map<Boolean, List<FavoriteItemsVo>> partitionedData = userPendingData.stream()
+                .collect(Collectors.partitioningBy(FavoriteItemsVo::getCannelFavorite));
+
+        List<FavoriteItemsVo> deleteData = partitionedData.get(true);
+        List<FavoriteItemsVo> addData = partitionedData.get(false);
+
+        // 创建结果集合
+        List<FavoriteItemsVo> result = new ArrayList<>(dbFavorites);
+
+        // 处理删除操作
+        if (CollectionUtils.isNotEmpty(deleteData)) {
+            Set<String> deleteKeys = deleteData.stream()
+                    .map(this::generateItemKey)
+                    .collect(Collectors.toSet());
+
+            result = result.stream()
+                    .filter(dbItem -> !deleteKeys.contains(generateItemKey(dbItem)))
+                    .collect(Collectors.toList());
+        }
+
+        // 处理新增操作
+        if (CollectionUtils.isNotEmpty(addData)) {
+            Set<String> existingKeys = result.stream()
+                    .map(this::generateItemKey)
+                    .collect(Collectors.toSet());
+
+            List<FavoriteItemsVo> uniqueAddData = addData.stream()
+                    .filter(addItem -> !existingKeys.contains(generateItemKey(addItem)))
                     .collect(Collectors.toList());
 
-            // 查询这些收藏夹中的所有收藏项
-            LambdaQueryWrapper<FavoriteItemsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.in(FavoriteItemsVo::getFavoriteId, favoriteIds)
-                    .orderByDesc(FavoriteItemsVo::getCrd);
-
-            List<FavoriteItemsVo> items = favoriteItemsDao.selectList(queryWrapper);
-
-            // 按收藏夹分组
-            Map<Long, List<FavoriteItemsDto>> groupedItems = items.stream()
-                    .map(this::convertToDto)
-                    .collect(Collectors.groupingBy(FavoriteItemsDto::getFavoriteId));
-
-            return CourseResponseWrapper.getSuccess(groupedItems);
-        } catch (Exception e) {
-            log.error("查询用户收藏项失败: userId={}", userId, e);
-            return CourseResponseWrapper.getFailed("查询失败");
+            result.addAll(uniqueAddData);
         }
+
+        return result;
     }
 
-    @Override
-    public CourseResponseWrapper getUserItemsByTarget(Long userId, String targetType, Long targetId) {
-        try {
-
-            // 查询用户的所有收藏夹
-            LambdaQueryWrapper<FavoritesVo> favoritesQuery = new LambdaQueryWrapper<>();
-            favoritesQuery.eq(FavoritesVo::getUserId, userId);
-            List<FavoritesVo> favorites = favoritesDao.selectList(favoritesQuery);
-
-            if (CollectionUtils.isEmpty(favorites)) {
-                return CourseResponseWrapper.getSuccess(Collections.emptyList());
-            }
-
-            List<Long> favoriteIds = favorites.stream()
-                    .map(FavoritesVo::getId)
-                    .collect(Collectors.toList());
-
-            // 查询指定目标的收藏项
-            LambdaQueryWrapper<FavoriteItemsVo> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.in(FavoriteItemsVo::getFavoriteId, favoriteIds)
-                    .eq(FavoriteItemsVo::getTargetType, targetType)
-                    .eq(FavoriteItemsVo::getTargetId, targetId)
-                    .orderByDesc(FavoriteItemsVo::getCrd);
-
-            List<FavoriteItemsVo> items = favoriteItemsDao.selectList(queryWrapper);
-            List<FavoriteItemsDto> result = items.stream()
-                    .map(this::convertToDto)
-                    .collect(Collectors.toList());
-
-            return CourseResponseWrapper.getSuccess(result);
-        } catch (Exception e) {
-            log.error("查询用户目标收藏项失败: userId={}, targetType={}, targetId={}",
-                    userId, targetType, targetId, e);
-            return CourseResponseWrapper.getFailed("查询失败");
-        }
+    /**
+     * 提取用户的待同步数据
+     */
+    private List<FavoriteItemsVo> extractUserPendingData(Long userId, Map<String, FavoriteItemsVo> pendingData) {
+        return pendingData.entrySet().stream()
+                .filter(entry -> {
+                    String[] keyParts = entry.getKey().split(":");
+                    return keyParts.length > 3 && String.valueOf(userId).equals(keyParts[3]);
+                })
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toList());
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public CourseResponseWrapper batchAddFavoriteItems(List<FavoriteItemsDto> dtos) {
-        try {
-            if (CollectionUtils.isEmpty(dtos)) {
-                return CourseResponseWrapper.getFailed("收藏项列表不能为空");
-            }
+    /**
+     * 生成收藏项的唯一键
+     */
+    private String generateItemKey(FavoriteItemsVo item) {
+        return item.getTargetId() + ":" + item.getTargetType();
+    }
 
-            String currentUser = CurUserUtil.getUserCode();
-            String now = DateTimeUtils.getCurrentDateTime();
-            List<FavoriteItemsVo> itemsToAdd = new ArrayList<>();
-            List<String> errors = new ArrayList<>();
+    /**
+     * 降级方案：串行查询
+     */
+    private CourseResponseWrapper fallbackSequentialQuery(Long userId, Long favoriteId) {
+        List<FavoriteItemsVo> dbFavorites = favoriteItemsDao.selectList(
+                new LambdaQueryWrapper<FavoriteItemsVo>()
+                        .eq(FavoriteItemsVo::getUserId, userId)
+                        .eq(FavoriteItemsVo::getFavoriteId, favoriteId)
+        );
 
-            for (FavoriteItemsDto dto : dtos) {
-                // 验证收藏夹是否存在且属于当前用户
-                FavoritesVo favorite = favoritesDao.selectById(dto.getFavoriteId());
-                if (favorite == null) {
-                    errors.add("收藏夹不存在: " + dto.getFavoriteId());
-                    continue;
-                }
-
-                if (!favorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                    errors.add("无权操作此收藏夹: " + dto.getFavoriteId());
-                    continue;
-                }
-
-                // 检查是否已收藏
-                LambdaQueryWrapper<FavoriteItemsVo> checkWrapper = new LambdaQueryWrapper<>();
-                checkWrapper.eq(FavoriteItemsVo::getFavoriteId, dto.getFavoriteId())
-                        .eq(FavoriteItemsVo::getTargetType, dto.getTargetType())
-                        .eq(FavoriteItemsVo::getTargetId, dto.getTargetId());
-
-                if (favoriteItemsDao.selectCount(checkWrapper) > 0) {
-                    errors.add("目标已收藏: " + dto.getTargetType() + "-" + dto.getTargetId());
-                    continue;
-                }
-
-                // 创建收藏项
-                FavoriteItemsVo item = convertToEntity(dto);
-                item.setCru(currentUser);
-                item.setLuu(currentUser);
-                item.setCrd(now);
-                item.setLud(now);
-                itemsToAdd.add(item);
-
-                // 记录互动
-                interactionsDao.saveInteraction(
-                        favorite.getUserId(),
-                        dto.getTargetType(),
-                        dto.getTargetId(),
-                        "favorite",
-                        Map.of("favoriteName", favorite.getName())
-                );
-            }
-
-            if (!itemsToAdd.isEmpty()) {
-                // 批量插入
-                for (FavoriteItemsVo item : itemsToAdd) {
-                    favoriteItemsDao.insert(item);
-                }
-
-                // 更新收藏夹计数
-                updateFavoriteItemCounts1(itemsToAdd);
-            }
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("successCount", itemsToAdd.size());
-            result.put("errorCount", errors.size());
-            result.put("errors", errors);
-
-            return CourseResponseWrapper.getSuccess("批量添加完成", result);
-        } catch (Exception e) {
-            log.error("批量添加收藏项失败", e);
-            throw new IllegalArgumentException("批量添加失败");
+        if (CollectionUtils.isEmpty(dbFavorites)) {
+            dbFavorites = new ArrayList<>();
         }
+
+        Map<String, FavoriteItemsVo> pendingData = redisUtils.hGetAll(RedisKeyConstant.SYNC_SAVE_FAVORITE);
+        if (CollectionUtils.isNotEmpty(pendingData)) {
+            List<FavoriteItemsVo> mergedData = mergeFavoriteData(userId, dbFavorites, pendingData);
+            return CourseResponseWrapper.getSuccess(mergedData);
+        }
+
+        return CourseResponseWrapper.getSuccess(dbFavorites);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper batchRemoveFavoriteItems(List<FavoriteItemsDto> dtos) {
-        try {
-            if (CollectionUtils.isEmpty(dtos)) {
-                return CourseResponseWrapper.getFailed("收藏项列表不能为空");
-            }
-
-            String currentUser = CurUserUtil.getUserCode();
-            List<Long> removedFavoriteIds = new ArrayList<>();
-            List<String> errors = new ArrayList<>();
-
-            for (FavoriteItemsDto dto : dtos) {
-                // 验证收藏夹是否属于当前用户
-                FavoritesVo favorite = favoritesDao.selectById(dto.getFavoriteId());
-                if (favorite == null) {
-                    errors.add("收藏夹不存在: " + dto.getFavoriteId());
-                    continue;
-                }
-
-                if (!favorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                    errors.add("无权操作此收藏夹: " + dto.getFavoriteId());
-                    continue;
-                }
-
-                // 删除收藏项
-                LambdaQueryWrapper<FavoriteItemsVo> deleteWrapper = new LambdaQueryWrapper<>();
-                deleteWrapper.eq(FavoriteItemsVo::getFavoriteId, dto.getFavoriteId())
-                        .eq(FavoriteItemsVo::getTargetType, dto.getTargetType())
-                        .eq(FavoriteItemsVo::getTargetId, dto.getTargetId());
-
-                int deleted = favoriteItemsDao.delete(deleteWrapper);
-                if (deleted > 0) {
-                    removedFavoriteIds.add(dto.getFavoriteId());
-
-                    // 移除互动记录
-                    interactionsDao.removeInteraction(
-                            favorite.getUserId(),
-                            dto.getTargetType(),
-                            dto.getTargetId(),
-                            "favorite"
-                    );
-                } else {
-                    errors.add("收藏项不存在: " + dto.getTargetType() + "-" + dto.getTargetId());
-                }
-            }
-
-            // 更新收藏夹计数
-            if (!removedFavoriteIds.isEmpty()) {
-                updateFavoriteItemCounts(removedFavoriteIds);
-            }
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("successCount", removedFavoriteIds.size());
-            result.put("errorCount", errors.size());
-            result.put("errors", errors);
-
-            return CourseResponseWrapper.getSuccess("批量移除完成", result);
-        } catch (Exception e) {
-            log.error("批量移除收藏项失败", e);
-            throw new IllegalArgumentException("批量移除失败");
-        }
+        dtos.stream().forEach(item->removeFavoriteItem(item));
+        return CourseResponseWrapper.getSuccess("批量移除成功");
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public CourseResponseWrapper moveFavoriteItem(Long itemId, Long targetFavoriteId) {
-        try {
-            // 验证原收藏项
-            FavoriteItemsVo item = favoriteItemsDao.selectById(itemId);
-            if (item == null) {
-                return CourseResponseWrapper.getFailed("收藏项不存在");
-            }
+    public CourseResponseWrapper moveFavoriteItem(FavoriteItemsDto dto) {
+        FavoriteItemsVo favoriteItemsVo = BeanConverter.dtoToVo(dto,FavoriteItemsVo.class);
+        String userId = CurUserUtil.getUserId();
+        String currentDateTime = DateTimeUtils.getCurrentDateTime();
+        //沒有ID代表它是从redis中获取的，即代表还没有同步
+        if (ObjectUtil.isEmpty(dto.getId())) {
+            Long targetId = dto.getTargetId();
+            String targetType = dto.getTargetType();
 
-            // 验证原收藏夹权限
-            FavoritesVo sourceFavorite = favoritesDao.selectById(item.getFavoriteId());
-            if (sourceFavorite == null || !sourceFavorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                return CourseResponseWrapper.getFailed("无权操作原收藏夹");
-            }
+            String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType, userId);
 
-            // 验证目标收藏夹
-            FavoritesVo targetFavorite = favoritesDao.selectById(targetFavoriteId);
-            if (targetFavorite == null) {
-                return CourseResponseWrapper.getFailed("目标收藏夹不存在");
-            }
-
-            if (!targetFavorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                return CourseResponseWrapper.getFailed("无权操作目标收藏夹");
-            }
-
-            // 检查目标收藏夹是否已存在相同收藏项
-            LambdaQueryWrapper<FavoriteItemsVo> checkWrapper = new LambdaQueryWrapper<>();
-            checkWrapper.eq(FavoriteItemsVo::getFavoriteId, targetFavoriteId)
-                    .eq(FavoriteItemsVo::getTargetType, item.getTargetType())
-                    .eq(FavoriteItemsVo::getTargetId, item.getTargetId());
-
-            if (favoriteItemsDao.selectCount(checkWrapper) > 0) {
-                return CourseResponseWrapper.getFailed("目标收藏夹中已存在相同收藏项");
-            }
-
-            // 更新收藏项
-            String currentUser = CurUserUtil.getUserCode();
-            String now = DateTimeUtils.getCurrentDateTime();
-
-            item.setFavoriteId(targetFavoriteId);
-            item.setLuu(currentUser);
-            item.setLud(now);
-            favoriteItemsDao.updateById(item);
-
-            // 更新两个收藏夹的计数
-            updateFavoriteItemCount(item.getFavoriteId()); // 原收藏夹
-            updateFavoriteItemCount(targetFavoriteId);     // 目标收藏夹
-
-            return CourseResponseWrapper.getSuccess("移动成功");
-        } catch (Exception e) {
-            log.error("移动收藏项失败: itemId={}, targetFavoriteId={}", itemId, targetFavoriteId, e);
-            throw new IllegalArgumentException("移动失败");
+            favoriteItemsVo.setCannelFavorite(false);
+            favoriteItemsVo.setLuu(userId);
+            favoriteItemsVo.setLud(currentDateTime);
+            redisUtils.hPut(RedisKeyConstant.SYNC_SAVE_FAVORITE,targetFavoriteKey,favoriteItemsVo);
+        }else {
+            favoriteItemsVo.setFavoriteId(dto.getTargetFavoriteId());
+            favoriteItemsVo.setLuu(userId);
+            favoriteItemsVo.setLud(currentDateTime);
+            favoriteItemsDao.updateById(favoriteItemsVo);
         }
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public CourseResponseWrapper copyFavoriteItem(Long itemId, Long targetFavoriteId) {
-        try {
-            // 验证原收藏项
-            FavoriteItemsVo originalItem = favoriteItemsDao.selectById(itemId);
-            if (originalItem == null) {
-                return CourseResponseWrapper.getFailed("收藏项不存在");
-            }
-
-            // 验证原收藏夹权限
-            FavoritesVo sourceFavorite = favoritesDao.selectById(originalItem.getFavoriteId());
-            if (sourceFavorite == null || !sourceFavorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                return CourseResponseWrapper.getFailed("无权操作原收藏夹");
-            }
-
-            // 验证目标收藏夹
-            FavoritesVo targetFavorite = favoritesDao.selectById(targetFavoriteId);
-            if (targetFavorite == null) {
-                return CourseResponseWrapper.getFailed("目标收藏夹不存在");
-            }
-
-            if (!targetFavorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                return CourseResponseWrapper.getFailed("无权操作目标收藏夹");
-            }
-
-            // 检查目标收藏夹是否已存在相同收藏项
-            LambdaQueryWrapper<FavoriteItemsVo> checkWrapper = new LambdaQueryWrapper<>();
-            checkWrapper.eq(FavoriteItemsVo::getFavoriteId, targetFavoriteId)
-                    .eq(FavoriteItemsVo::getTargetType, originalItem.getTargetType())
-                    .eq(FavoriteItemsVo::getTargetId, originalItem.getTargetId());
-
-            if (favoriteItemsDao.selectCount(checkWrapper) > 0) {
-                return CourseResponseWrapper.getFailed("目标收藏夹中已存在相同收藏项");
-            }
-
-            // 创建新收藏项
-            String currentUser = CurUserUtil.getUserCode();
-            String now = DateTimeUtils.getCurrentDateTime();
-
-            FavoriteItemsVo newItem = new FavoriteItemsVo();
-            BeanUtils.copyProperties(originalItem, newItem);
-            newItem.setId(null); // 清除ID，让数据库自动生成
-            newItem.setFavoriteId(targetFavoriteId);
-            newItem.setCru(currentUser);
-            newItem.setLuu(currentUser);
-            newItem.setCrd(now);
-            newItem.setLud(now);
-
-            favoriteItemsDao.insert(newItem);
-
-            // 更新目标收藏夹计数
-            updateFavoriteItemCount(targetFavoriteId);
-
-            // 记录新的互动
-            interactionsDao.saveInteraction(
-                    targetFavorite.getUserId(),
-                    newItem.getTargetType(),
-                    newItem.getTargetId(),
-                    "favorite",
-                    Map.of("favoriteName", targetFavorite.getName())
-            );
-
-            return CourseResponseWrapper.getSuccess("复制成功");
-        } catch (Exception e) {
-            log.error("复制收藏项失败: itemId={}, targetFavoriteId={}", itemId, targetFavoriteId, e);
-            throw new IllegalArgumentException("复制失败");
-        }
-    }
-
-    @Override
-    public CourseResponseWrapper getFavoriteItemsStatistics(Long userId, String targetType) {
-        try {
-            Map<String, Object> statistics = new HashMap<>();
-
-            if (userId != null) {
-                // 用户统计
-                LambdaQueryWrapper<FavoritesVo> favoritesQuery = new LambdaQueryWrapper<>();
-                favoritesQuery.eq(FavoritesVo::getUserId, userId);
-                List<FavoritesVo> userFavorites = favoritesDao.selectList(favoritesQuery);
-
-                if (!CollectionUtils.isEmpty(userFavorites)) {
-                    List<Long> favoriteIds = userFavorites.stream()
-                            .map(FavoritesVo::getId)
-                            .collect(Collectors.toList());
-
-                    // 按目标类型统计
-                    LambdaQueryWrapper<FavoriteItemsVo> countWrapper = new LambdaQueryWrapper<>();
-                    countWrapper.in(FavoriteItemsVo::getFavoriteId, favoriteIds);
-
-                    if (StringUtils.hasText(targetType)) {
-                        countWrapper.eq(FavoriteItemsVo::getTargetType, targetType);
-                    }
-
-                    Integer totalCount = favoriteItemsDao.selectCount(countWrapper);
-                    statistics.put("totalCount", totalCount);
-
-                    // 按目标类型分组统计
-                    if (!StringUtils.hasText(targetType)) {
-                        List<Map<String, Object>> typeStats = favoriteItemsDao.selectFavoriteCountByType(favoriteIds);
-                        statistics.put("typeStatistics", typeStats);
-                    }
-                }
-            }
-
-            // 全局热门收藏统计
-            if (StringUtils.hasText(targetType)) {
-                List<Map<String, Object>> popularItems = favoriteItemsDao.selectPopularTargets(targetType, 10);
-                statistics.put("popularTargets", popularItems);
-            }
-
-            return CourseResponseWrapper.getSuccess(statistics);
-        } catch (Exception e) {
-            log.error("获取收藏项统计失败: userId={}, targetType={}", userId, targetType, e);
-            return CourseResponseWrapper.getFailed("获取统计失败");
-        }
-    }
-
-    @Override
-    public CourseResponseWrapper searchFavoriteItems(Long userId, String targetType, String keyword) {
-        try {
-            LambdaQueryWrapper<FavoriteItemsVo> queryWrapper = new LambdaQueryWrapper<>();
-
-            // 用户过滤
-            if (userId != null) {
-                LambdaQueryWrapper<FavoritesVo> favoritesQuery = new LambdaQueryWrapper<>();
-                favoritesQuery.eq(FavoritesVo::getUserId, userId);
-                List<FavoritesVo> userFavorites = favoritesDao.selectList(favoritesQuery);
-
-                if (CollectionUtils.isEmpty(userFavorites)) {
-                    return CourseResponseWrapper.getSuccess(Collections.emptyList());
-                }
-
-                List<Long> favoriteIds = userFavorites.stream()
-                        .map(FavoritesVo::getId)
-                        .collect(Collectors.toList());
-                queryWrapper.in(FavoriteItemsVo::getFavoriteId, favoriteIds);
-            }
-
-            // 目标类型过滤
-            if (StringUtils.hasText(targetType)) {
-                queryWrapper.eq(FavoriteItemsVo::getTargetType, targetType);
-            }
-
-            // 关键词搜索（备注字段）
-            if (StringUtils.hasText(keyword)) {
-                queryWrapper.like(FavoriteItemsVo::getNotes, keyword);
-            }
-
-            queryWrapper.orderByDesc(FavoriteItemsVo::getCrd);
-            List<FavoriteItemsVo> items = favoriteItemsDao.selectList(queryWrapper);
-
-            List<FavoriteItemsDto> result = items.stream()
-                    .map(this::convertToDto)
-                    .collect(Collectors.toList());
-
-            return CourseResponseWrapper.getSuccess(result);
-        } catch (Exception e) {
-            log.error("搜索收藏项失败: userId={}, targetType={}, keyword={}", userId, targetType, keyword, e);
-            return CourseResponseWrapper.getFailed("搜索失败");
-        }
-    }
-
-    @Override
-    public CourseResponseWrapper updateItemSort(Long itemId, Integer sortOrder) {
-        try {
-            FavoriteItemsVo item = favoriteItemsDao.selectById(itemId);
-            if (item == null) {
-                return CourseResponseWrapper.getFailed("收藏项不存在");
-            }
-
-            // 验证收藏夹权限
-            FavoritesVo favorite = favoritesDao.selectById(item.getFavoriteId());
-            if (favorite == null || !favorite.getUserId().equals(CurUserUtil.getUserCode())) {
-                return CourseResponseWrapper.getFailed("无权操作此收藏项");
-            }
-
-            // 更新排序
-            LambdaUpdateWrapper<FavoriteItemsVo> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(FavoriteItemsVo::getId, itemId)
-                    .set(FavoriteItemsVo::getLuu, CurUserUtil.getUserCode())
-                    .set(FavoriteItemsVo::getLud, DateTimeUtils.getCurrentDateTime());
-
-            boolean success = update(updateWrapper);
-            return success ? CourseResponseWrapper.getSuccess("排序更新成功")
-                    : CourseResponseWrapper.getFailed("排序更新失败");
-        } catch (Exception e) {
-            log.error("更新收藏项排序失败: itemId={}, sortOrder={}", itemId, sortOrder, e);
-            return CourseResponseWrapper.getFailed("更新排序失败");
-        }
-    }
-
-    @Override
-    public CourseResponseWrapper getPopularFavoriteTargets(String targetType, Integer limit) {
-        try {
-            if (limit == null || limit <= 0) {
-                limit = 10;
-            }
-
-            List<Map<String, Object>> popularTargets = favoriteItemsDao.selectPopularTargets(targetType, limit);
-            return CourseResponseWrapper.getSuccess(popularTargets);
-        } catch (Exception e) {
-            log.error("获取热门收藏目标失败: targetType={}, limit={}", targetType, limit, e);
-            return CourseResponseWrapper.getFailed("获取热门目标失败");
-        }
-    }
-
-    // 辅助方法
-    private FavoriteItemsDto convertToDto(FavoriteItemsVo entity) {
-        if (entity == null) {
-            return null;
-        }
-        FavoriteItemsDto dto = new FavoriteItemsDto();
-        BeanUtils.copyProperties(entity, dto);
-        return dto;
-    }
-
-    private FavoriteItemsVo convertToEntity(FavoriteItemsDto dto) {
-        if (dto == null) {
-            return null;
-        }
-        FavoriteItemsVo entity = new FavoriteItemsVo();
-        BeanUtils.copyProperties(dto, entity);
-        return entity;
-    }
-
-    private void updateFavoriteItemCounts1(List<FavoriteItemsVo> items) {
-        if (CollectionUtils.isEmpty(items)) {
-            return;
-        }
-
-        // 按收藏夹分组
-        Map<Long, List<FavoriteItemsVo>> groupedByFavorite = items.stream()
-                .collect(Collectors.groupingBy(FavoriteItemsVo::getFavoriteId));
-
-        for (Long favoriteId : groupedByFavorite.keySet()) {
-            updateFavoriteItemCount(favoriteId);
-        }
-    }
-
-    private void updateFavoriteItemCounts(List<Long> favoriteIds) {
-        if (CollectionUtils.isEmpty(favoriteIds)) {
-            return;
-        }
-
-        for (Long favoriteId : favoriteIds) {
-            updateFavoriteItemCount(favoriteId);
-        }
-    }
-
-    private void updateFavoriteItemCount(Long favoriteId) {
-        // 统计收藏夹中的项目数量
-        LambdaQueryWrapper<FavoriteItemsVo> countWrapper = new LambdaQueryWrapper<>();
-        countWrapper.eq(FavoriteItemsVo::getFavoriteId, favoriteId);
-        Integer itemCount = favoriteItemsDao.selectCount(countWrapper);
-
-        // 更新收藏夹的项目数量
-        FavoritesVo favorite = new FavoritesVo();
-        favorite.setId(favoriteId);
-        favorite.setItemCount(itemCount);
-        favorite.setLuu(CurUserUtil.getUserCode());
-        favorite.setLud(DateTimeUtils.getCurrentDateTime());
-        favoritesDao.updateById(favorite);
+        return CourseResponseWrapper.getSuccess("移动成功");
     }
 }

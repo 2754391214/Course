@@ -35,4 +35,6 @@ public interface CourseFeignService {
     CourseResponseWrapper checkTimeConflict(@PathVariable("courseId") Long courseId,
                                             @RequestParam("studentId") Long studentId,
                                             @RequestParam("enrolledCourseIds") List<Long> enrolledCourseIds);
+    @GetMapping("/courseSchedules/batchGetCourseSchedules")
+    CourseResponseWrapper batchGetCourseSchedules(@RequestParam("courseIds") List<Long> courseIds);
 }

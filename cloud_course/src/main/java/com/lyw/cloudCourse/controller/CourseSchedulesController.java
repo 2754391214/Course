@@ -26,7 +26,6 @@ import java.util.List;
 public class CourseSchedulesController extends BaseController<CourseSchedulesDto> {
 
     private final CourseSchedulesBo service;
-
     @Override
     public CourseSchedulesBo getBaseService() {
         return service;
@@ -40,5 +39,10 @@ public class CourseSchedulesController extends BaseController<CourseSchedulesDto
                                                    @RequestParam("studentId") Long studentId,
                                                    @RequestParam("enrolledCourseIds") List<Long> enrolledCourseIds){
         return service.checkTimeConflict(courseId,studentId,enrolledCourseIds);
+    }
+
+    @GetMapping("/batchGetCourseSchedules")
+    CourseResponseWrapper batchGetCourseSchedules(@RequestParam("courseIds") List<Long> courseIds){
+        return service.batchGetCourseSchedules(courseIds);
     }
 }

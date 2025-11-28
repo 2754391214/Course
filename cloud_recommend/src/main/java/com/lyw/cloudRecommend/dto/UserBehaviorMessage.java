@@ -18,7 +18,7 @@ public class UserBehaviorMessage implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 消息ID（用于去重）
+     * 消息ID
      */
     private String messageId;
 

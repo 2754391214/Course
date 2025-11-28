@@ -1,5 +1,6 @@
 package com.lyw.cloudRanking.config;
 
+import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -11,22 +12,16 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // 交换机和队列定义
-    public static final String COURSE_HEAT_EXCHANGE = "course.heat.exchange";
-    public static final String COURSE_HEAT_QUEUE = "course.heat.queue";
-    public static final String COURSE_HEAT_DLQ = "course.heat.dlq";
-    public static final String COURSE_HEAT_ROUTING_KEY = "course.heat.#";
-
     @Bean
     public TopicExchange courseHeatExchange() {
-        return new TopicExchange(COURSE_HEAT_EXCHANGE, true, false);
+        return new TopicExchange(RabbitmqKeyConstant.COURSE_HEAT_EXCHANGE, true, false);
     }
 
     @Bean
     public Queue courseHeatQueue() {
-        return QueueBuilder.durable(COURSE_HEAT_QUEUE)
+        return QueueBuilder.durable(RabbitmqKeyConstant.COURSE_HEAT_QUEUE)
                 .deadLetterExchange("") // 使用默认交换机
-                .deadLetterRoutingKey(COURSE_HEAT_DLQ)
+                .deadLetterRoutingKey(RabbitmqKeyConstant.COURSE_HEAT_DLQ)
                 .ttl(60000) // 60秒后进入死信队列
                 .maxLength(10000) // 最大队列长度
                 .build();
@@ -34,13 +29,13 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue courseHeatDLQ() {
-        return new Queue(COURSE_HEAT_DLQ, true);
+        return new Queue(RabbitmqKeyConstant.COURSE_HEAT_DLQ, true);
     }
     @Bean
     public Binding courseHeatBinding() {
         return BindingBuilder.bind(courseHeatQueue())
                 .to(courseHeatExchange())
-                .with(COURSE_HEAT_ROUTING_KEY);
+                .with(RabbitmqKeyConstant.COURSE_HEAT_ROUTING_KEY);
     }
 
     // 批量消费容器工厂

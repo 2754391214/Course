@@ -1,9 +1,9 @@
 package com.lyw.cloudInteraction.service;
 
-import com.lyw.cloudInteraction.vo.ReviewRepliesVo;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.lyw.cloudInteraction.dto.ReviewRepliesDto;
+import com.lyw.cloudInteraction.vo.ReviewRepliesVo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseBo;
 
 /**
  * <p>
@@ -13,8 +13,8 @@ import com.lyw.commonUtil.service.BaseBo;
  * @author lyw
  * @since 2025/10/29
  */
-public interface ReviewRepliesBo extends BaseBo<ReviewRepliesVo,ReviewRepliesDto> {
-    CourseResponseWrapper getRepliesByReviewId(Long reviewId, Integer page, Integer size, String sort);
+public interface ReviewRepliesBo extends IService<ReviewRepliesVo> {
+    CourseResponseWrapper getRepliesByReviewId(ReviewRepliesDto dto);
 
     CourseResponseWrapper getReplyTreeByReviewId(Long reviewId);
 
@@ -26,11 +26,9 @@ public interface ReviewRepliesBo extends BaseBo<ReviewRepliesVo,ReviewRepliesDto
 
     CourseResponseWrapper auditReply(Long replyId, String status, String auditRemark);
 
-    CourseResponseWrapper getRepliesByUserId(Long userId, Integer page, Integer size);
+    CourseResponseWrapper getRepliesByUserId(ReviewRepliesDto dto);
 
     CourseResponseWrapper getReplyDetail(Long replyId);
 
-    CourseResponseWrapper incrementLikeCount(Long replyId);
-
-    CourseResponseWrapper getChildReplies(Long parentId, Integer page, Integer size);
+    CourseResponseWrapper getChildReplies(ReviewRepliesDto dto);
 }

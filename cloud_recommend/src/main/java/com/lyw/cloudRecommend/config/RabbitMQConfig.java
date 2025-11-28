@@ -1,5 +1,6 @@
 package com.lyw.cloudRecommend.config;
 
+import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -14,22 +15,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // 用户行为相关队列和交换器
-    public static final String USER_BEHAVIOR_EXCHANGE = "user.behavior.exchange";
-    public static final String USER_BEHAVIOR_QUEUE = "user.behavior.queue";
-    public static final String USER_BEHAVIOR_ROUTING_KEY = "user.behavior.routing.key";
-
-    // 死信队列配置
-    public static final String USER_BEHAVIOR_DLQ_EXCHANGE = "user.behavior.dlq.exchange";
-    public static final String USER_BEHAVIOR_DLQ_QUEUE = "user.behavior.dlq.queue";
-    public static final String USER_BEHAVIOR_DLQ_ROUTING_KEY = "user.behavior.dlq.routing.key";
-
     /**
      * 用户行为交换器
      */
     @Bean
     public DirectExchange userBehaviorExchange() {
-        return new DirectExchange(USER_BEHAVIOR_EXCHANGE, true, false);
+        return new DirectExchange(RabbitmqKeyConstant.USER_BEHAVIOR_EXCHANGE, true, false);
     }
 
     /**
@@ -37,9 +28,9 @@ public class RabbitMQConfig {
      */
     @Bean
     public Queue userBehaviorQueue() {
-        return QueueBuilder.durable(USER_BEHAVIOR_QUEUE)
-                .withArgument("x-dead-letter-exchange", USER_BEHAVIOR_DLQ_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", USER_BEHAVIOR_DLQ_ROUTING_KEY)
+        return QueueBuilder.durable(RabbitmqKeyConstant.USER_BEHAVIOR_QUEUE)
+                .withArgument("x-dead-letter-exchange", RabbitmqKeyConstant.USER_BEHAVIOR_DLQ_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", RabbitmqKeyConstant.USER_BEHAVIOR_DLQ_ROUTING_KEY)
                 .withArgument("x-message-ttl", 60000) // 1分钟过期
                 .build();
     }
@@ -51,7 +42,7 @@ public class RabbitMQConfig {
     public Binding userBehaviorBinding() {
         return BindingBuilder.bind(userBehaviorQueue())
                 .to(userBehaviorExchange())
-                .with(USER_BEHAVIOR_ROUTING_KEY);
+                .with(RabbitmqKeyConstant.USER_BEHAVIOR_ROUTING_KEY);
     }
 
     /**
@@ -59,7 +50,7 @@ public class RabbitMQConfig {
      */
     @Bean
     public DirectExchange userBehaviorDlqExchange() {
-        return new DirectExchange(USER_BEHAVIOR_DLQ_EXCHANGE, true, false);
+        return new DirectExchange(RabbitmqKeyConstant.USER_BEHAVIOR_DLQ_EXCHANGE, true, false);
     }
 
     /**
@@ -67,7 +58,7 @@ public class RabbitMQConfig {
      */
     @Bean
     public Queue userBehaviorDlqQueue() {
-        return QueueBuilder.durable(USER_BEHAVIOR_DLQ_QUEUE).build();
+        return QueueBuilder.durable(RabbitmqKeyConstant.USER_BEHAVIOR_DLQ_QUEUE).build();
     }
 
     /**
@@ -77,7 +68,7 @@ public class RabbitMQConfig {
     public Binding userBehaviorDlqBinding() {
         return BindingBuilder.bind(userBehaviorDlqQueue())
                 .to(userBehaviorDlqExchange())
-                .with(USER_BEHAVIOR_DLQ_ROUTING_KEY);
+                .with(RabbitmqKeyConstant.USER_BEHAVIOR_DLQ_ROUTING_KEY);
     }
 
     /**

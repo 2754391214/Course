@@ -3,7 +3,6 @@ package com.lyw.cloudInteraction.dto;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 
@@ -16,7 +15,6 @@ import java.math.BigDecimal;
  * @since 2025/10/29
  */
 @Data
-@Accessors(chain = true)
 public class ReviewsDto extends BaseDto {
 
     @ApiModelProperty("主键ID")
@@ -57,21 +55,6 @@ public class ReviewsDto extends BaseDto {
     
     @ApiModelProperty("是否匿名评价")
     private Boolean anonymous;
-    
-    @ApiModelProperty("点赞数")
-    private Integer likeCount;
-    
-    @ApiModelProperty("有用数")
-    private Integer usefulCount;
-    
-    @ApiModelProperty("回复数")
-    private Integer replyCount;
-    
-    @ApiModelProperty("浏览数")
-    private Integer viewCount;
-    
-    @ApiModelProperty("被举报次数")
-    private Integer reportCount;
     
     @ApiModelProperty("评价状态：pending-待审核,approved-已审核,rejected-已拒绝,hidden-已隐藏")
     private String status;

@@ -1,16 +1,24 @@
 package com.lyw.cloudRanking.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.ObjectUtil;
 import com.lyw.cloudRanking.dto.*;
+import com.lyw.cloudRanking.feign.CourseFeignService;
 import com.lyw.cloudRanking.service.CourseHeatDailyBo;
-import com.lyw.cloudRanking.service.RankingConfigBo;
 import com.lyw.cloudRanking.service.RankingQueryService;
 import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
+import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
+import com.lyw.commonUtil.util.FeignResponseHelper;
+import com.lyw.commonUtil.util.RedisUtils;
+import com.lyw.commonUtil.util.reidsCache.StringCache.CacheConfig;
+import com.lyw.commonUtil.util.reidsCache.StringCache.DistributedCacheHelper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,79 +29,73 @@ import java.util.stream.Collectors;
 @Service
 public class RankingQueryServiceImpl implements RankingQueryService {
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
 
-    @Autowired
+    @Resource
     private CourseHeatDailyBo courseHeatDailyBo;
-
-    @Autowired
-    private RankingConfigBo rankingConfigBo;
+    @Resource
+    private RedisUtils redisUtils;
+    @Resource
+    private CourseFeignService courseFeignService;
+    @Resource
+    private DistributedCacheHelper distributedCacheHelper;
     /**
      * 获取实时排行榜
      */
-    public List<RankingItemDto> getRealTimeRanking(String rankingCode, int page, int size) {
-        String rankingKey = "ranking:course:heat";
-
+    @Override
+    public CourseResponseWrapper getRealTimeRanking(String rankingCode, int page, int size) {
         try {
             int start = (page - 1) * size;
             int end = start + size - 1;
-
-            Set<ZSetOperations.TypedTuple<Object>> tuples = redisTemplate.opsForZSet()
-                    .reverseRangeWithScores(rankingKey, start, end);
-
-            if (tuples == null) {
-                return Collections.emptyList();
+            Set<ZSetOperations.TypedTuple<Object>> tuples = redisUtils.reverseRangeWithScores(RedisKeyConstant.RANKING_COURSE_HEAT, start, end);
+            if (CollectionUtil.isEmpty(tuples)) {
+                return CourseResponseWrapper.getFailed("没有查询到排行榜数据");
             }
 
             List<RankingItemDto> ranking = new ArrayList<>();
             int rank = start + 1;
 
             for (ZSetOperations.TypedTuple<Object> tuple : tuples) {
-                Long courseId = Long.valueOf(tuple.getValue().toString());
+                Long courseId = (Long) tuple.getValue();
                 Double heatScore = tuple.getScore();
 
-                RankingItemDto item = RankingItemDto.builder()
+                ranking.add(RankingItemDto.builder()
                         .courseId(courseId)
                         .heatScore(heatScore)
                         .rank(rank++)
                         .courseInfo(getCourseCacheInfo(courseId))
-                        .build();
-
-                ranking.add(item);
+                        .build());
             }
 
-            return ranking;
+            return CourseResponseWrapper.getSuccess(ranking);
 
         } catch (Exception e) {
             log.error("获取实时排行榜失败: {}", rankingCode, e);
-            return Collections.emptyList();
+            return CourseResponseWrapper.getFailed("获取实时排行榜失败");
         }
     }
 
     /**
      * 获取课程排行榜详情
      */
-    public CourseRankingDetailDto getCourseRankingDetail(String rankingCode, Long courseId) {
-        String rankingKey = "ranking:course:heat";
-        String heatKey = String.format("course:heat:%d", courseId);
+    public CourseResponseWrapper getCourseRankingDetail(String rankingCode, Long courseId) {
+        String heatKey = String.format(RedisKeyConstant.COURSE_HEAT_WHO, courseId);
 
         try {
             // 获取当前排名
-            Long rank = redisTemplate.opsForZSet().reverseRank(rankingKey, courseId.toString());
-            Double heatScore = (Double) redisTemplate.opsForValue().get(heatKey);
+            Long rank = redisUtils.zReverseRank(RedisKeyConstant.RANKING_COURSE_HEAT, courseId.toString());
+            Double heatScore = redisUtils.get(heatKey);
 
-            if (rank == null || heatScore == null) {
-                return null;
+            if (ObjectUtil.isEmpty(rank) || ObjectUtil.isEmpty(heatScore)) {
+                return CourseResponseWrapper.getFailed("课程不在排行榜中");
             }
 
-            return CourseRankingDetailDto.builder()
+            return CourseResponseWrapper.getSuccess(CourseRankingDetailDto.builder()
                     .courseId(courseId)
                     .rankingCode(rankingCode)
                     .heatScore(heatScore)
                     .currentRank(rank.intValue() + 1) // 转为1-based排名
                     .courseInfo(getCourseCacheInfo(courseId))
-                    .build();
+                    .build());
 
         } catch (Exception e) {
             log.error("获取课程排行榜详情失败: courseId={}", courseId, e);
@@ -104,7 +106,7 @@ public class RankingQueryServiceImpl implements RankingQueryService {
     /**
      * 获取课程热度趋势
      */
-    public HeatTrendDto getCourseHeatTrend(String rankingCode, Long courseId, String period) {
+    public CourseResponseWrapper getCourseHeatTrend(String rankingCode, Long courseId, String period) {
         // 从数据库查询历史数据
         List<CourseHeatDailyVo> dailyData = courseHeatDailyBo.getRecentHeatData(courseId, period);
 
@@ -116,48 +118,58 @@ public class RankingQueryServiceImpl implements RankingQueryService {
                         .build())
                 .collect(Collectors.toList());
 
-        return HeatTrendDto.builder()
+        return CourseResponseWrapper.getSuccess(HeatTrendDto.builder()
                 .courseId(courseId)
                 .period(period)
                 .dataPoints(dataPoints)
-                .build();
+                .build());
     }
 
     /**
      * 搜索排行榜课程
      */
-    public List<RankingItemDto> searchRanking(String rankingCode, String keyword, int page, int size) {
-        // 先获取整个排行榜，然后过滤（实际应该用Redis Search或其他搜索方案）
-        List<RankingItemDto> allRanking = getRealTimeRanking(rankingCode, 1, 1000);
-
-        return allRanking.stream()
+    public CourseResponseWrapper searchRanking(String rankingCode, String keyword, int page, int size) {
+        // 先获取整个排行榜，然后过滤
+        List<RankingItemDto> allRanking = FeignResponseHelper.convertToList(getRealTimeRanking(rankingCode, 1, 1000),RankingItemDto.class);
+        return CourseResponseWrapper.getSuccess(allRanking.stream()
                 .filter(item -> matchesKeyword(item, keyword))
                 .skip((page - 1) * size)
                 .limit(size)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 刷新排行榜缓存
-     */
-    public void refreshRankingCache(String rankingCode) {
-        // 可以重新计算或触发缓存更新
-        log.info("刷新排行榜缓存: {}", rankingCode);
+                .collect(Collectors.toList()));
     }
 
     private boolean matchesKeyword(RankingItemDto item, String keyword) {
-        // 简化实现，实际应该查询课程信息
         return item.getCourseInfo() != null &&
                 item.getCourseInfo().getCourseName().toLowerCase().contains(keyword.toLowerCase());
     }
 
+
+    // 课程信息缓存
+    private CoursesDto getCachedCourse(Long courseId) {
+        return distributedCacheHelper.getOrLoad(
+                courseId.toString(),
+                new CacheConfig(
+                        RedisKeyConstant.COURSE_INFO,
+                        RedisKeyConstant.LOCK_COURSE_INFO,
+                        Duration.ofHours(24)
+                ),
+                () -> FeignResponseHelper.convert(
+                        courseFeignService.searchDetail(courseId), CoursesDto.class),
+                CoursesDto.class
+        );
+    }
+
+    // 获取课程基本信息
     private CourseBasicInfoDto getCourseCacheInfo(Long courseId) {
-        // 从缓存或外部服务获取课程基本信息
-        // 简化实现，返回空对象
-        return CourseBasicInfoDto.builder()
+        CoursesDto coursesDto = getCachedCourse(courseId);
+        if (ObjectUtil.isEmpty(coursesDto)){
+            return null;
+        }
+        return CourseBasicInfoDto
+                .builder()
                 .courseId(courseId)
-                .courseName("课程" + courseId)
-                .teacherName("教师")
+                .courseName(coursesDto.getName())
+                .teacherName(coursesDto.getTeacherName())
                 .build();
     }
 }

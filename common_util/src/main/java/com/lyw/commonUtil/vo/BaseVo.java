@@ -22,8 +22,6 @@ public class BaseVo implements Serializable {
     protected String orderBy = null;
     @TableField(exist = false)
     protected String order = null;
-    @TableField(exist = false)
-    private String userGroup;
 
     @TableField(value = "crd")
     private String crd;
@@ -42,9 +40,6 @@ public class BaseVo implements Serializable {
 
     @TableField(exist = false)
     private int pageNo;
-
-    @TableField(exist = false)
-    private Map<String, List<String>> filters;
 
     //搜索条件
     @TableField(exist = false)

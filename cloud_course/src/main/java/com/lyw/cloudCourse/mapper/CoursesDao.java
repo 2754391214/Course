@@ -24,4 +24,10 @@ public interface CoursesDao extends BaseMapper<CoursesVo> {
     List<CoursesVo> selectPopularCourses(@Param("limit") Integer limit,@Param("semester") String semester,@Param("departmentId") Long departmentId);
 
     List<CoursesVo> selectCategoryCourses(Page<CoursesVo> page,@Param("ew") QueryWrapper<CoursesVo> eq);
+
+    int updateEnrolledCountAtomically(@Param("courseId") Long courseId);
+
+    int decrementEnrolledCountAtomically(@Param("courseId") Long courseId);
+
+    CoursesVo selectAllDataById(@Param("id") Long id);
 }

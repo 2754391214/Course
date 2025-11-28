@@ -2,8 +2,9 @@ package com.lyw.cloudRanking.consumer;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lyw.cloudRanking.dto.HeatEventMessage;
+import com.lyw.commonUtil.message.HeatEventMessage;
 import com.lyw.cloudRanking.service.HeatCalculateService;
+import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -21,8 +22,6 @@ public class HeatEventConsumer {
 
     @Resource
     private HeatCalculateService heatCalculateService;
-    @Resource
-    private ObjectMapper objectMapper;
     // 批量处理缓冲区
     private final Map<Long, List<HeatEventMessage>> buffer = new HashMap<>();
     private static final int BATCH_THRESHOLD = 50;
@@ -31,46 +30,17 @@ public class HeatEventConsumer {
     /**
      * 单消息消费
      */
-    @RabbitListener(queues = "course.heat.queue")
+    @RabbitListener(queues = RabbitmqKeyConstant.COURSE_HEAT_QUEUE)
     public void handleSingleMessage(HeatEventMessage message) {
-        log.debug("收到热度事件: eventType={}, courseId={}",
-                message.getEventType(), message.getCourseId());
+        log.debug("收到热度事件: eventType={}, courseId={}", message.getEventType(), message.getCourseId());
         try {
             // 使用缓冲处理，减少Redis操作
             bufferMessage(message);
 
         } catch (Exception e) {
-            log.error("处理热度事件失败: eventId={}", message.getEventId(), e);
+            log.error("处理热度事件失败: messageId={}", message.getMessageId(), e);
             // 快速失败，不重试，保证系统稳定性
         }
-    }
-
-    /**
-     * 批量消息消费
-     */
-    @RabbitListener(queues = "course.heat.queue", containerFactory = "batchContainerFactory")
-    public void handleBatchMessages(List<Message> messages) {
-        log.info("批量处理热度事件: 数量={}", messages.size());
-
-        Map<Long, Double> courseIncrements = new HashMap<>();
-
-        for (Message message : messages) {
-            try {
-                HeatEventMessage event = convertToHeatEvent(message);
-                double increment = heatCalculateService.calculateHeatIncrement(event);
-
-                // 按课程聚合增量
-                courseIncrements.merge(event.getCourseId(), increment, Double::sum);
-
-            } catch (Exception e) {
-                log.error("处理批量消息失败", e);
-            }
-        }
-
-        // 批量更新热度
-        heatCalculateService.batchUpdateHeat(courseIncrements);
-
-        log.info("批量更新完成: 影响课程数={}", courseIncrements.size());
     }
 
     /**
@@ -123,47 +93,5 @@ public class HeatEventConsumer {
 
         log.debug("批量处理课程{}的{}个事件，总增量{}",
                 courseId, eventsToProcess.size(), totalIncrement);
-    }
-
-    /**
-     * 转换消息
-     */
-    private HeatEventMessage convertToHeatEvent(Message message) {
-        try {
-            byte[] body = message.getBody();
-
-            if (body == null || body.length == 0) {
-                log.warn("收到空消息体");
-                return null;
-            }
-
-            // 使用Jackson反序列化消息体
-            HeatEventMessage heatEvent = objectMapper.readValue(body, HeatEventMessage.class);
-
-            // 验证必要字段
-            if (heatEvent.getEventId() == null) {
-                log.warn("消息缺少eventId: {}", new String(body));
-                return null;
-            }
-
-            if (heatEvent.getCourseId() == null) {
-                log.warn("消息缺少courseId: eventId={}", heatEvent.getEventId());
-                return null;
-            }
-
-            if (heatEvent.getEventType() == null) {
-                log.warn("消息缺少eventType: eventId={}", heatEvent.getEventId());
-                return null;
-            }
-
-            log.debug("成功转换消息: eventId={}, eventType={}, courseId={}",
-                    heatEvent.getEventId(), heatEvent.getEventType(), heatEvent.getCourseId());
-
-            return heatEvent;
-
-        } catch (Exception e) {
-            log.error("消息转换失败: messageProperties={}", message.getMessageProperties(), e);
-            throw new RuntimeException("消息转换失败", e);
-        }
     }
 }

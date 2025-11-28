@@ -1,11 +1,9 @@
 package com.lyw.cloudInteraction.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.lyw.cloudInteraction.dto.FavoriteItemsDto;
-import com.lyw.cloudInteraction.vo.FavoritesVo;
 import com.lyw.cloudInteraction.dto.FavoritesDto;
+import com.lyw.cloudInteraction.vo.FavoritesVo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseBo;
 
 /**
  * <p>
@@ -25,14 +23,4 @@ public interface FavoritesBo extends IService<FavoritesVo> {
     CourseResponseWrapper getUserFavorites(Long userId);
 
     CourseResponseWrapper getFavoriteDetail(Long favoriteId);
-
-    CourseResponseWrapper addFavoriteItem(FavoriteItemsDto dto);
-
-    CourseResponseWrapper removeFavoriteItem(FavoriteItemsDto dto);
-
-    CourseResponseWrapper getFavoriteItems(Long favoriteId);
-
-    CourseResponseWrapper updateFavoriteItem(FavoriteItemsDto dto);
-
-    CourseResponseWrapper getFavoriteStatus(String targetType, Long targetId, Long userId);
 }
