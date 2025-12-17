@@ -2,11 +2,7 @@ package com.lyw.cloudMember.dto;
 
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
-import java.util.Date;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -17,7 +13,6 @@ import lombok.experimental.Accessors;
  * @since 2025/11/06
  */
 @Data
-@Accessors(chain = true)
 public class TeacherProfileDto extends BaseDto {
 
     private Long id;
@@ -27,7 +22,13 @@ public class TeacherProfileDto extends BaseDto {
     
     @ApiModelProperty("工号")
     private String teacherId;
-    
+
+    @ApiModelProperty("姓名")
+    private String name;
+
+    @ApiModelProperty("相片")
+    private String avatar;
+
     @ApiModelProperty("职称")
     private String title;
     

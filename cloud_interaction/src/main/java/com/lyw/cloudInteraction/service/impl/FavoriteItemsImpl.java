@@ -2,13 +2,13 @@ package com.lyw.cloudInteraction.service.impl;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.cloudInteraction.dto.FavoriteItemsDto;
 import com.lyw.cloudInteraction.mapper.FavoriteItemsDao;
 import com.lyw.cloudInteraction.service.FavoriteItemsBo;
 import com.lyw.cloudInteraction.service.HeatEventPublisher;
+import com.lyw.cloudInteraction.service.UserBehaviorPublisher;
 import com.lyw.cloudInteraction.vo.FavoriteItemsVo;
 import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.constant.RedisKeyConstant;
@@ -50,11 +50,14 @@ public class FavoriteItemsImpl extends ServiceImpl<FavoriteItemsDao, FavoriteIte
     private DistributedSetCacheHelper distributedSetCacheHelper;
     @Resource
     private HeatEventPublisher heatEventPublisher;
+    @Resource
+    private UserBehaviorPublisher userBehaviorPublisher;
     @Override
     public CourseResponseWrapper addFavoriteItem(FavoriteItemsDto dto) {
         Long targetId = dto.getTargetId();
         String targetType = dto.getTargetType();
         String userId = CurUserUtil.getUserId();
+        Long courseId = dto.getCourseId();
         String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType);
 
         FavoriteItemsVo favoriteItemsVo = BeanConverter.dtoToVo(dto,FavoriteItemsVo.class);
@@ -65,8 +68,9 @@ public class FavoriteItemsImpl extends ServiceImpl<FavoriteItemsDao, FavoriteIte
 
         // 使用 Set 记录用户收藏关系
         Long result = redisUtils.sAdd(targetFavoriteKey, userId);
-        if (ObjectUtil.isNotEmpty(dto.getCourseId())) {
-            heatEventPublisher.publishEvent(targetType,dto.getCourseId(), CommonKeyConstant.FAVORITE,null);
+        if (ObjectUtil.isNotEmpty(courseId)) {
+            heatEventPublisher.publishEvent(targetType, courseId, CommonKeyConstant.FAVORITE,null);
+            userBehaviorPublisher.sendUserBehavior(Long.valueOf(userId), courseId, CommonKeyConstant.FAVORITE);
         }
 
         if (result > 0) {
@@ -82,6 +86,7 @@ public class FavoriteItemsImpl extends ServiceImpl<FavoriteItemsDao, FavoriteIte
         Long targetId = dto.getTargetId();
         String targetType = dto.getTargetType();
         String userId = CurUserUtil.getUserId();
+        Long courseId = dto.getCourseId();
         String targetFavoriteKey = String.format(RedisKeyConstant.FAVORITE_ITEM, targetId, targetType);
 
         FavoriteItemsVo favoriteItemsVo = new FavoriteItemsVo();
@@ -92,7 +97,7 @@ public class FavoriteItemsImpl extends ServiceImpl<FavoriteItemsDao, FavoriteIte
 
         // 使用 Set 移除用户收藏关系
         Long result = redisUtils.sRemove(targetFavoriteKey, userId);
-
+        userBehaviorPublisher.sendUserBehavior(Long.valueOf(userId), courseId, CommonKeyConstant.UNFAVORITE);
         if (result > 0) {
             // 更新排行榜：减少收藏数 TODO 异步给排行榜
             String rankKey = String.format(RedisKeyConstant.FAVORITE_ITEM_COUNT, targetType);

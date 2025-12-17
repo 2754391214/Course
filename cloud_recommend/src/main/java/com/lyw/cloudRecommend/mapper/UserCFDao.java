@@ -1,7 +1,7 @@
 package com.lyw.cloudRecommend.mapper;
 
-import com.lyw.cloudRecommend.vo.UserProfileVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.lyw.cloudRecommend.vo.UserCFVo;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -13,6 +13,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2025/10/31
  */
 @Mapper
-public interface UserProfileDao extends BaseMapper<UserProfileVo> {
+public interface UserCFDao extends BaseMapper<UserCFVo> {
 
 }

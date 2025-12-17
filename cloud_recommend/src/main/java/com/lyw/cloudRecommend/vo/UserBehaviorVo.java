@@ -45,7 +45,7 @@ public class UserBehaviorVo extends BaseVo {
 
     @ApiModelProperty("行为权重")
     @TableField(value = "behavior_weight")
-    private BigDecimal behaviorWeight;
+    private Integer behaviorWeight;
 
     @ApiModelProperty("行为上下文")
     @TableField(value = "context")

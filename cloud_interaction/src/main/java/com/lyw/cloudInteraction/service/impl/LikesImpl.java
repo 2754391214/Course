@@ -9,6 +9,7 @@ import com.lyw.cloudInteraction.dto.LikesDto;
 import com.lyw.cloudInteraction.mapper.LikesDao;
 import com.lyw.cloudInteraction.service.HeatEventPublisher;
 import com.lyw.cloudInteraction.service.LikesBo;
+import com.lyw.cloudInteraction.service.UserBehaviorPublisher;
 import com.lyw.cloudInteraction.vo.LikesVo;
 import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.constant.RedisKeyConstant;
@@ -45,19 +46,23 @@ public class LikesImpl extends ServiceImpl<LikesDao, LikesVo> implements LikesBo
     private DistributedSetCacheHelper distributedSetCacheHelper;
     @Resource
     private HeatEventPublisher heatEventPublisher;
+    @Resource
+    private UserBehaviorPublisher userBehaviorPublisher;
     @Override
     public CourseResponseWrapper addLike(LikesDto dto) {
         Long targetId = dto.getTargetId();
         String targetType = dto.getTargetType();
         Long userId = dto.getUserId();
+        Long courseId = dto.getCourseId();
         String targetLikeKey = String.format(RedisKeyConstant.LIKE_ITEM, targetId, targetType);
         redisUtils.hPut(RedisKeyConstant.SYNC_SAVE_LIKE,targetLikeKey+":"+userId,1);
 
         // 使用 Set 记录用户点赞关系
         Long result = redisUtils.sAdd(targetLikeKey, userId);
 
-        if (ObjectUtil.isNotEmpty(dto.getCourseId())) {
-            heatEventPublisher.publishEvent(targetType,dto.getCourseId(), CommonKeyConstant.LIKE,null);
+        if (ObjectUtil.isNotEmpty(courseId)) {
+            heatEventPublisher.publishEvent(targetType, courseId, CommonKeyConstant.LIKE,null);
+            userBehaviorPublisher.sendUserBehavior(Long.valueOf(userId), courseId, CommonKeyConstant.LIKE);
         }
 
         if (result > 0) {
@@ -73,12 +78,13 @@ public class LikesImpl extends ServiceImpl<LikesDao, LikesVo> implements LikesBo
         Long targetId = dto.getTargetId();
         String targetType = dto.getTargetType();
         Long userId = dto.getUserId();
+        Long courseId = dto.getCourseId();
         String targetLikeKey = String.format(RedisKeyConstant.LIKE_ITEM, targetId, targetType);
         redisUtils.hPut(RedisKeyConstant.SYNC_SAVE_LIKE,targetLikeKey+":"+userId,0);
 
         // 使用 Set 移除用户收藏关系
         Long result = redisUtils.sRemove(targetLikeKey, userId);
-
+        userBehaviorPublisher.sendUserBehavior(Long.valueOf(userId), courseId, CommonKeyConstant.UNLIKE);
         if (result > 0) {
             // 更新排行榜：减少点赞数 TODO 异步给排行榜
             String rankKey = String.format(RedisKeyConstant.LIKE_COUNT, targetType);

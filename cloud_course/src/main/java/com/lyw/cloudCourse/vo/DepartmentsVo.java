@@ -7,7 +7,6 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,7 +20,6 @@ import java.util.List;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 @TableName("departments")
 public class DepartmentsVo extends BaseVo {
 
@@ -41,10 +39,6 @@ public class DepartmentsVo extends BaseVo {
     @TableField(value = "description")
     private String description;
 
-    @ApiModelProperty("父院系ID，支持院系层级结构")
-    @TableField(value = "parent_id")
-    private Long parentId;
-
     @ApiModelProperty("排序字段，用于控制显示顺序")
     @TableField(value = "sort_order")
     private Integer sortOrder;
@@ -52,8 +46,6 @@ public class DepartmentsVo extends BaseVo {
     @ApiModelProperty("院系状态：活跃/非活跃")
     @TableField(value = "status")
     private String status = "N";
-
-
 
     @ApiModelProperty("学期")
     @TableField(exist = false)

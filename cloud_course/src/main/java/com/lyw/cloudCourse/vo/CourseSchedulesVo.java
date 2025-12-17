@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.time.LocalTime;
 
@@ -21,7 +20,6 @@ import java.time.LocalTime;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 @TableName("course_schedules")
 public class CourseSchedulesVo extends BaseVo {
 

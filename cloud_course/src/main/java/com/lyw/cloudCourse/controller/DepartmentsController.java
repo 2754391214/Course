@@ -34,9 +34,7 @@ public class DepartmentsController extends BaseController<DepartmentsDto> {
      * 获取院系的课程
      */
     @GetMapping("/{departmentId}/courses")
-    public CourseResponseWrapper getDepartmentCourses(
-            @PathVariable Long departmentId,
-            @RequestParam(required = false) String semester) {
+    public CourseResponseWrapper getDepartmentCourses(@PathVariable Long departmentId, @RequestParam(required = false) String semester) {
         return service.getDepartmentCourses(departmentId, semester);
     }
 }

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
@@ -18,7 +17,6 @@ import java.util.Date;
  * @since 2025/11/19
  */
 @Data
-@Accessors(chain = true)
 public class LocalMessageDto extends BaseDto {
     
     @ApiModelProperty("业务唯一键，主键ID，保证唯一")

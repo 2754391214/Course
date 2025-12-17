@@ -3,7 +3,6 @@ package com.lyw.cloudChoose.dto;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 
@@ -16,7 +15,6 @@ import java.math.BigDecimal;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class EnrollmentPrioritiesDto extends BaseDto {
 
 @ApiModelProperty("主键ID")

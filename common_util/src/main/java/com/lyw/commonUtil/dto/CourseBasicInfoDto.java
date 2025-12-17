@@ -1,11 +1,10 @@
-package com.lyw.cloudRanking.dto;
+package com.lyw.commonUtil.dto;
 
 import lombok.Builder;
 import lombok.Data;
-import lombok.experimental.Accessors;
+
 
 @Data
-@Accessors(chain = true)
 @Builder
 public class CourseBasicInfoDto {
     private Long courseId;

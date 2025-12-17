@@ -61,15 +61,15 @@ public class LocalMessageServiceImpl extends ServiceImpl<LocalMessageDao, LocalM
      */
     @Override
     public LocalMessageVo createMessage(String messageType, String routingKey, Object messageBody, String exchange, String currentDateTime, String userId,String messageId) {
-        LocalMessageVo message = new LocalMessageVo()
-                .setBusinessKey(messageId)
-                .setMessageType(messageType)
-                .setExchange(exchange)
-                .setRoutingKey(routingKey)
-                .setMessageBody(JSON.toJSONString(messageBody))
-                .setStatus(LocalMessageVo.STATUS_PENDING)
-                .setRetryCount(0)
-                .setMaxRetryCount(5);
+        LocalMessageVo message = new LocalMessageVo();
+        message.setBusinessKey(messageId);
+        message.setMessageType(messageType);
+        message.setExchange(exchange);
+        message.setRoutingKey(routingKey);
+        message.setMessageBody(JSON.toJSONString(messageBody));
+        message.setStatus(LocalMessageVo.STATUS_PENDING);
+        message.setRetryCount(0);
+        message.setMaxRetryCount(5);
 
         // 设置创建时间和更新时间为当前时间
         message.setCrdAndLud(currentDateTime);

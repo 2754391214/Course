@@ -1,26 +1,32 @@
 package com.lyw.cloudMember.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.lyw.cloudMember.dto.*;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.lyw.cloudMember.dto.ChangePasswordDto;
+import com.lyw.cloudMember.dto.SocialUserDto;
+import com.lyw.cloudMember.dto.UserLoginDto;
+import com.lyw.cloudMember.dto.UserRegisterDto;
 import com.lyw.cloudMember.mapper.UserAuthDao;
+import com.lyw.cloudMember.mapper.UserDao;
+import com.lyw.cloudMember.service.UserBo;
 import com.lyw.cloudMember.vo.UserAuthVo;
 import com.lyw.cloudMember.vo.UserVo;
-import com.lyw.cloudMember.mapper.UserDao;
+import com.lyw.commonUtil.exception.UserPerceivableSpecificException;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.service.BaseImpl;
 import com.lyw.commonUtil.util.AES256;
 import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.stereotype.Service;
-import com.lyw.cloudMember.service.UserBo;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,7 +39,7 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements UserBo {
+public class UserImpl extends ServiceImpl<UserDao, UserVo> implements UserBo {
 
     @Resource
     private UserDao userDao;
@@ -173,37 +179,37 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper changePassword(ChangePasswordDto dto) {
         try {
             // 1. 查询用户认证信息
-            LambdaQueryWrapper<UserAuthVo> authQuery = new LambdaQueryWrapper<>();
-            authQuery.eq(UserAuthVo::getUserId, dto.getUserId())
+            LambdaQueryWrapper<UserAuthVo> authQuery = new LambdaQueryWrapper<UserAuthVo>()
+                    .eq(UserAuthVo::getUserId, dto.getUserId())
                     .eq(UserAuthVo::getIdentityType, "password");
 
-            UserAuthVo userAuth = userAuthDao.selectOne(authQuery);
-            if (ObjectUtil.isEmpty(userAuth)) {
+            List<UserAuthVo> userAuthList = userAuthDao.selectList(authQuery);
+            if (CollectionUtil.isEmpty(userAuthList)) {
                 return CourseResponseWrapper.getFailed("用户不存在");
             }
-
             // 2. 验证原密码
-            if (!StringUtils.equals(AES256.encrypt(dto.getOldPassword(), AES256.getKey()), userAuth.getCredential())) {
+            if (!StringUtils.equals(AES256.encrypt(dto.getOldPassword(), AES256.getKey()), userAuthList.get(0).getCredential())) {
                 return CourseResponseWrapper.getFailed("原密码错误");
             }
+            for (UserAuthVo userAuth: userAuthList){
+                // 3. 更新密码
+                userAuth.setCredential(AES256.decrypt(dto.getNewPassword()));
+                userAuth.setCruAndLuu(DateTimeUtils.getCurrentDateTime());
 
-            // 3. 更新密码
-            userAuth.setCredential(AES256.decrypt(dto.getNewPassword()));
-            userAuth.setCruAndLuu(DateTimeUtils.getCurrentDateTime());
-
-            int result = userAuthDao.updateById(userAuth);
-            if (result <= 0) {
-                return CourseResponseWrapper.getFailed("密码修改失败");
+                int result = userAuthDao.updateById(userAuth);
+                if (result <= 0) {
+                    throw new UserPerceivableSpecificException("密码修改失败");
+                }
             }
-
             return CourseResponseWrapper.getSuccess("密码修改成功");
 
         } catch (Exception e) {
             log.error("修改密码失败: {}", e.getMessage(), e);
-            return CourseResponseWrapper.getFailed("系统异常，密码修改失败");
+            throw new UserPerceivableSpecificException("系统异常，密码修改失败");
         }
     }
 
@@ -211,8 +217,8 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
     public CourseResponseWrapper oauthLogin(SocialUserDto dto) {
         try {
             // 1. 根据社交平台唯一标识查询用户认证信息
-            LambdaQueryWrapper<UserAuthVo> authQuery = new LambdaQueryWrapper<>();
-            authQuery.eq(UserAuthVo::getIdentifier, dto.getSocialUid())
+            LambdaQueryWrapper<UserAuthVo> authQuery = new LambdaQueryWrapper<UserAuthVo>()
+                    .eq(UserAuthVo::getIdentifier, dto.getSocialUid())
                     .eq(UserAuthVo::getIdentityType, dto.getSocialType());
 
             UserAuthVo userAuth = userAuthDao.selectOne(authQuery);
@@ -253,6 +259,11 @@ public class UserImpl extends BaseImpl<UserDao, UserVo, UserDto> implements User
             log.error("第三方登录失败: {}", e.getMessage(), e);
             return CourseResponseWrapper.getFailed("第三方登录失败");
         }
+    }
+
+    @Override
+    public CourseResponseWrapper searchDetail(Long userId) {
+        return CourseResponseWrapper.getSuccess(baseMapper.selectInfoById(userId));
     }
 
     /**

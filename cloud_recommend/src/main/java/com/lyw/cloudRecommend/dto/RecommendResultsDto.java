@@ -25,21 +25,10 @@ public class RecommendResultsDto extends BaseDto {
     @ApiModelProperty("用户ID")
     private Long userId;
     
-    @ApiModelProperty("推荐类型: HOME_PAGE, COURSE_DETAIL, PERSONALIZED")
-    private String recommendType;
-    
     @ApiModelProperty("推荐课程ID列表")
     private String courseIds;
     
     @ApiModelProperty("推荐分数")
     private String scores;
-    
-    @ApiModelProperty("使用的策略")
-    private String strategyUsed;
-    
-    @ApiModelProperty("过期时间")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date expireTime;
                     
 }

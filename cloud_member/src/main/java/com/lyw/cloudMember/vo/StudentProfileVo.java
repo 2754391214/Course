@@ -1,19 +1,17 @@
 package com.lyw.cloudMember.vo;
 
-import com.lyw.commonUtil.vo.BaseVo;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.activerecord.Model;
-import java.math.BigDecimal;
-import java.util.Date;
-import io.swagger.annotations.ApiModel;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.experimental.Accessors;
+
+import java.math.BigDecimal;
+import java.util.Date;
 
 /**
  * <p>
@@ -24,7 +22,6 @@ import lombok.experimental.Accessors;
  * @since 2025/11/06
  */
 @Data
-@Accessors(chain = true)
 @TableName("student_profile")
 public class StudentProfileVo extends BaseVo {
 
@@ -34,6 +31,14 @@ public class StudentProfileVo extends BaseVo {
     @ApiModelProperty("用户ID")
     @TableField(value = "user_id")
     private Long userId;
+
+    @ApiModelProperty("姓名")
+    @TableField(value = "name")
+    private String name;
+
+    @ApiModelProperty("相片")
+    @TableField(value = "avatar")
+    private String avatar;
 
     @ApiModelProperty("学号")
     @TableField(value = "student_id")
@@ -53,14 +58,14 @@ public class StudentProfileVo extends BaseVo {
 
     @ApiModelProperty("入学年份")
     @TableField(value = "enrollment_year")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
+    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @JsonFormat(pattern = "dd/MM/yyyy", timezone = "GMT+8")
     private Date enrollmentYear;
 
     @ApiModelProperty("预计毕业年份")
     @TableField(value = "expected_graduation")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
+    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @JsonFormat(pattern = "dd/MM/yyyy", timezone = "GMT+8")
     private Date expectedGraduation;
 
     @ApiModelProperty("绩点")

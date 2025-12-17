@@ -1,5 +1,6 @@
 package com.lyw.cloudMember.controller;
 
+import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 用户偏好表")
 @RestController
-@RequestMapping("UserPreference")
+@RequestMapping("userPreference")
 public class UserPreferenceController extends BaseController<UserPreferenceDto> {
 
     private final UserPreferenceBo service;
@@ -27,5 +28,9 @@ public class UserPreferenceController extends BaseController<UserPreferenceDto> 
     @Override
     public UserPreferenceBo getBaseService() {
         return service;
+    }
+    @GetMapping("/user/{userId}")
+    public CourseResponseWrapper findDetailByUser(@PathVariable Long userId) {
+        return service.findDetailByUser(userId);
     }
 }

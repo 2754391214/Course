@@ -3,7 +3,6 @@ package com.lyw.cloudCourse.dto;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -14,7 +13,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class DepartmentsDto extends BaseDto {
 
     @ApiModelProperty("院系ID，主键自增")
@@ -28,9 +26,6 @@ public class DepartmentsDto extends BaseDto {
 
     @ApiModelProperty("院系描述")
     private String description;
-
-    @ApiModelProperty("父院系ID，支持院系层级结构")
-    private Long parentId;
 
     @ApiModelProperty("排序字段，用于控制显示顺序")
     private Integer sortOrder;

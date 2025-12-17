@@ -21,15 +21,13 @@ import com.lyw.commonUtil.controller.BaseController;
 @Api(tags = "REST - 用户基础表")
 @RestController
 @RequestMapping("user")
-public class UserController extends BaseController<UserDto> {
+public class UserController {
 
     private final UserBo service;
-
-    @Override
-    public UserBo getBaseService() {
-        return service;
+    @GetMapping("/searchDetail")
+    public CourseResponseWrapper searchDetail(@RequestParam Long userId){
+        return service.searchDetail(userId);
     }
-
     @PostMapping("/register")
     public CourseResponseWrapper register(@RequestBody UserRegisterDto dto){
         return service.register(dto);
@@ -44,7 +42,7 @@ public class UserController extends BaseController<UserDto> {
     }
 
     @PostMapping(value = "/oauth2/login")
-    public CourseResponseWrapper oauthLogin(@RequestBody SocialUserDto dto) throws Exception {
+    public CourseResponseWrapper oauthLogin(@RequestBody SocialUserDto dto) {
         return service.oauthLogin(dto);
     }
 }

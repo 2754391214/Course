@@ -10,13 +10,13 @@ import com.lyw.cloudAuthServer.utils.JwtTokenUtil;
 import com.lyw.cloudAuthServer.utils.ValidateCodeUtils;
 import com.lyw.commonUtil.constant.AuthServerConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
+import com.lyw.commonUtil.util.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +29,7 @@ public class LoginServiceImpl implements LoginService {
     private ThirdPartFeignService thirdPartFeignService;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
+    private RedisUtils redisUtils;
 
     @Resource
     private MemberFeignService memberFeignService;
@@ -39,7 +39,7 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public CourseResponseWrapper sendCode(String phone) {
-        String redisCode = stringRedisTemplate.opsForValue().get(AuthServerConstant.SMS_CODE_CACHE_PREFIX + phone);
+        String redisCode = redisUtils.get(AuthServerConstant.SMS_CODE_CACHE_PREFIX + phone);
         if (StringUtils.isNotEmpty(redisCode)) {
             long preSendTime = Long.parseLong(redisCode.split("_")[1]);
             if (System.currentTimeMillis() - preSendTime < 60000) {
@@ -48,7 +48,7 @@ public class LoginServiceImpl implements LoginService {
         }
         String code = String.valueOf(ValidateCodeUtils.generateValidateCode(4));
         String code1 = code + "_" + System.currentTimeMillis();
-        stringRedisTemplate.opsForValue().set(AuthServerConstant.SMS_CODE_CACHE_PREFIX + phone, code1, 10, TimeUnit.MINUTES);
+        redisUtils.set(AuthServerConstant.SMS_CODE_CACHE_PREFIX + phone, code1, Duration.ofMinutes(10));
         log.info("{}验证码：{}",phone,code);
         thirdPartFeignService.sendCode(phone, code);
         return CourseResponseWrapper.getSuccess();
@@ -60,12 +60,12 @@ public class LoginServiceImpl implements LoginService {
         String code = dto.getVerificationCode();
 
         //获取存入Redis里的验证码
-        String redisCode = stringRedisTemplate.opsForValue().get(AuthServerConstant.SMS_CODE_CACHE_PREFIX + dto.getPhone());
+        String redisCode = redisUtils.get(AuthServerConstant.SMS_CODE_CACHE_PREFIX + dto.getPhone());
         if (StringUtils.isNotEmpty(redisCode)) {
             //截取字符串
             if (code.equals(redisCode.split("_")[0])) {
                 //删除验证码;令牌机制
-                stringRedisTemplate.delete(AuthServerConstant.SMS_CODE_CACHE_PREFIX + dto.getPhone());
+                redisUtils.delete(AuthServerConstant.SMS_CODE_CACHE_PREFIX + dto.getPhone());
                 //验证码通过，真正注册，调用远程服务进行注册
                 return memberFeignService.register(dto);
             }
@@ -93,16 +93,14 @@ public class LoginServiceImpl implements LoginService {
                 String userKey = AuthServerConstant.LOGIN_USER_ID_PREFIX + userId;
 
                 // 删除该用户之前的token（单点登录）
-                String oldToken = stringRedisTemplate.opsForValue().get(userKey);
+                String oldToken = redisUtils.get(userKey);
                 if (StringUtils.isNotEmpty(oldToken)) {
-                    stringRedisTemplate.delete(AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + oldToken);
+                    redisUtils.delete(AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + oldToken);
                 }
 
                 // 存储新的token
-                stringRedisTemplate.opsForValue().set(tokenKey, userId.toString(),
-                        AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
-                stringRedisTemplate.opsForValue().set(userKey, token,
-                        AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
+                redisUtils.set(tokenKey, userId, Duration.ofSeconds(AuthServerConstant.LOGIN_TOKEN_EXPIRE));
+                redisUtils.set(userKey, token, Duration.ofSeconds(AuthServerConstant.LOGIN_TOKEN_EXPIRE));
 
                 // 返回token给前端
                 Map<String, Object> result = new HashMap<>();
@@ -127,7 +125,7 @@ public class LoginServiceImpl implements LoginService {
 
         // 检查Redis中是否存在该token
         String tokenKey = AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + token;
-        String userId = stringRedisTemplate.opsForValue().get(tokenKey);
+        String userId = redisUtils.get(tokenKey);
 
         if (StringUtils.isEmpty(userId)) {
             return CourseResponseWrapper.getFailed("token无效");
@@ -136,14 +134,14 @@ public class LoginServiceImpl implements LoginService {
         // 验证JWT token
         if (!jwtTokenUtil.validateToken(token)) {
             // token无效，清理Redis
-            stringRedisTemplate.delete(tokenKey);
-            stringRedisTemplate.delete(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId);
+            redisUtils.delete(tokenKey);
+            redisUtils.delete(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId);
             return CourseResponseWrapper.getFailed("token无效");
         }
 
         // 验证通过，刷新token过期时间
-        stringRedisTemplate.expire(tokenKey, AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
-        stringRedisTemplate.expire(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId,
+        redisUtils.expire(tokenKey, AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
+        redisUtils.expire(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId,
                 AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
 
         return CourseResponseWrapper.getSuccess();
@@ -152,19 +150,18 @@ public class LoginServiceImpl implements LoginService {
     /**
      * 退出登录
      */
-    public CourseResponseWrapper logout(HttpServletRequest request) {
-        String token = extractToken(request);
+    public CourseResponseWrapper logout(String token) {
         if (StringUtils.isEmpty(token)) {
             return CourseResponseWrapper.getFailed("退出失败");
         }
 
         String tokenKey = AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + token;
-        String userId = stringRedisTemplate.opsForValue().get(tokenKey);
+        String userId = redisUtils.get(tokenKey);
 
         if (StringUtils.isNotEmpty(userId)) {
             // 删除token和用户映射
-            stringRedisTemplate.delete(tokenKey);
-            stringRedisTemplate.delete(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId);
+            redisUtils.delete(tokenKey);
+            redisUtils.delete(AuthServerConstant.LOGIN_USER_ID_PREFIX + userId);
             return CourseResponseWrapper.getSuccess();
         }
 
@@ -177,21 +174,11 @@ public class LoginServiceImpl implements LoginService {
     public CourseResponseWrapper getUserIdByToken(String token) {
         if (StringUtils.isNotEmpty(token)) {
             String tokenKey = AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + token;
-            String userIdStr = stringRedisTemplate.opsForValue().get(tokenKey);
+            String userIdStr = redisUtils.get(tokenKey);
             if (StringUtils.isNotEmpty(userIdStr)) {
                 return CourseResponseWrapper.getSuccess(userIdStr);
             }
         }
         return CourseResponseWrapper.getFailed("token无效");
-    }
-    /**
-     * 从请求头中提取token
-     */
-    private String extractToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
     }
 }

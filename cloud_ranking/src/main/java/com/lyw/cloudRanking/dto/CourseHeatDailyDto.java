@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
+
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
@@ -19,7 +19,6 @@ import java.util.Date;
  * @since 2025/10/31
  */
 @Data
-@Accessors(chain = true)
 public class CourseHeatDailyDto extends BaseDto {
 
     private Long id;

@@ -4,10 +4,10 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.lyw.cloudCourse.dto.UserDto;
 import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,7 +21,6 @@ import java.util.List;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 @TableName("courses")
 public class CoursesVo extends BaseVo {
 
@@ -97,32 +96,38 @@ public class CoursesVo extends BaseVo {
     @TableField(value = "metadata")
     private String metadata;
 
-    @ApiModelProperty("热度分数")
+    @ApiModelProperty("院系名称")
     @TableField(exist = false)
-    private BigDecimal hotScore;
+    private String departmentsName;
 
-    @ApiModelProperty("评价数量")
+    @ApiModelProperty("课程分类名称")
     @TableField(exist = false)
-    private Integer reviewCount;
+    private String courseCategoriesName;
 
-    @ApiModelProperty("平均评分")
+    @ApiModelProperty("收藏人数")
     @TableField(exist = false)
-    private BigDecimal avgRating;
+    private Integer favoritedCount;
 
+    @ApiModelProperty("是否收藏")
+    @TableField(exist = false)
+    private Boolean isFavorited;
 
+    @ApiModelProperty("点赞人数")
+    @TableField(exist = false)
+    private Boolean isLiked;
 
-    @ApiModelProperty("可用名额")
+    @ApiModelProperty("是否点赞")
     @TableField(exist = false)
-    private Integer availableSlots;
-    @ApiModelProperty("状态描述")
+    private Integer likedCount;
+
+    @ApiModelProperty("教师名字")
     @TableField(exist = false)
-    private String statusDescription;
-    @ApiModelProperty("是否能够选择")
+    private String teacherName;
+
+    @ApiModelProperty("教师头像")
     @TableField(exist = false)
-    private Boolean canEnroll;
-    @ApiModelProperty("选课进度百分比")
-    @TableField(exist = false)
-    private BigDecimal enrollmentProgress;
+    private String teacherAvatat;
+
     @ApiModelProperty("新的选课人数")
     @TableField(exist = false)
     private Integer newCurrentEnrollment;

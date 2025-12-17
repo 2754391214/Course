@@ -1,14 +1,12 @@
 package com.lyw.cloudCourse.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
-
-import java.util.Date;
-
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.experimental.Accessors;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalTime;
 
 /**
  * <p>
@@ -19,7 +17,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class CourseSchedulesDto extends BaseDto {
 
     @ApiModelProperty("时间安排ID，主键自增")
@@ -32,14 +29,14 @@ public class CourseSchedulesDto extends BaseDto {
     private String dayOfWeek;
 
     @ApiModelProperty("上课开始时间")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date startTime;
+    @DateTimeFormat(pattern = "HH:mm:ss")
+    @JsonFormat(pattern = "HH:mm:ss", timezone = "GMT+8")
+    private LocalTime startTime;
 
     @ApiModelProperty("上课结束时间")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date endTime;
+    @DateTimeFormat(pattern = "HH:mm:ss")
+    @JsonFormat(pattern = "HH:mm:ss", timezone = "GMT+8")
+    private LocalTime endTime;
 
     @ApiModelProperty("上课地点")
     private String location;

@@ -9,9 +9,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import com.fasterxml.jackson.annotation.JsonFormat;
 #if(${entityLombokModel})
 import lombok.Data;
-    #if(${chainModel})
-import lombok.experimental.Accessors;
-    #end
 #end
 
 /**
@@ -24,9 +21,6 @@ import lombok.experimental.Accessors;
  */
 #if(${entityLombokModel})
 @Data
-    #if(${chainModel})
-@Accessors(chain = true)
-    #end
 #end
 #if(${table.convert})
 #end

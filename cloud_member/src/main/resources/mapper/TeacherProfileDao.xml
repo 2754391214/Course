@@ -4,4 +4,7 @@
 <mapper namespace="com.lyw.cloudMember.mapper.TeacherProfileDao">
 
 
+    <update id="unbindUser">
+        UPDATE teacher_profile SET user_id = NULL WHERE user_id = #{userId} AND teacher_id = #{teacherId}
+    </update>
 </mapper>

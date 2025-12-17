@@ -1,12 +1,12 @@
 package com.lyw.cloudRanking.dto;
 
+import com.lyw.commonUtil.dto.CourseBasicInfoDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Builder;
 import lombok.Data;
-import lombok.experimental.Accessors;
+
 
 @Data
-@Accessors(chain = true)
 @Builder
 public class RankingItemDto {
     @ApiModelProperty("课程ID")

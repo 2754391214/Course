@@ -1,9 +1,6 @@
 package com.lyw.cloudChoose.service.impl;
 
-import cn.hutool.core.util.ObjectUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.lyw.cloudChoose.dto.EnrollmentsDto;
 import com.lyw.cloudChoose.dto.WaitlistsDto;
 import com.lyw.cloudChoose.mapper.WaitlistsDao;
 import com.lyw.cloudChoose.service.EnrollmentsBo;
@@ -12,7 +9,6 @@ import com.lyw.cloudChoose.vo.WaitlistsVo;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import com.lyw.commonUtil.util.RedissLockUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;

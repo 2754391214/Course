@@ -16,10 +16,6 @@ import java.util.List;
  * @since 2025/10/22
  */
 public interface CoursesBo extends BaseBo<CoursesVo,CoursesDto> {
-    CourseResponseWrapper findById(Long courseId);
-
-    CourseResponseWrapper getPopularCourses(Integer limit, String semester);
-
     CourseResponseWrapper getTeacherCourses(Long teacherId, String semester);
 
     CourseResponseWrapper incrementEnrollment(Long courseId);
@@ -28,4 +24,5 @@ public interface CoursesBo extends BaseBo<CoursesVo,CoursesDto> {
 
     CourseResponseWrapper batchUpdateCapacity(List<CoursesDto> updates);
 
+    CourseResponseWrapper searchBatchByIds(List<Long> courseIds);
 }

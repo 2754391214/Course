@@ -3,7 +3,6 @@ package com.lyw.cloudCourse.dto;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -14,7 +13,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class CoursesDto extends BaseDto {
 
     @ApiModelProperty("课程ID，主键自增")

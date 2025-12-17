@@ -4,8 +4,6 @@ import com.lyw.cloudAuthServer.dto.UserLoginDto;
 import com.lyw.cloudAuthServer.dto.UserRegisterDto;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 
-import javax.servlet.http.HttpServletRequest;
-
 public interface LoginService {
     CourseResponseWrapper sendCode(String phone);
 
@@ -13,7 +11,7 @@ public interface LoginService {
 
     CourseResponseWrapper login(UserLoginDto dto);
 
-    CourseResponseWrapper logout(HttpServletRequest request);
+    CourseResponseWrapper logout(String token);
 
     CourseResponseWrapper validateToken(String token);
 

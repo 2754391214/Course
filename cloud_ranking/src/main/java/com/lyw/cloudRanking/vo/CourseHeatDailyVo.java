@@ -23,7 +23,6 @@ import java.util.Date;
  * @since 2025/10/31
  */
 @Data
-@Accessors(chain = true)
 @TableName("course_heat_daily")
 public class CourseHeatDailyVo extends BaseVo {
 

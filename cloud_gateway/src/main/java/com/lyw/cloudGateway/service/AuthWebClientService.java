@@ -3,6 +3,7 @@ package com.lyw.cloudGateway.service;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -15,10 +16,10 @@ public class AuthWebClientService {
 
     private final WebClient webClient;
 
-    @Value("${service.urls.auth-service:lb://cloudAuthServer}")
+    @Value("${service.urls.auth-service:cloudAuthServer}")
     private String authServiceUrl;
 
-    public AuthWebClientService(WebClient.Builder webClientBuilder) {
+    public AuthWebClientService(@LoadBalanced WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
 
@@ -27,8 +28,8 @@ public class AuthWebClientService {
      */
     public Mono<Boolean> validateToken(String token) {
         return webClient.get()
-                .uri(authServiceUrl + "/validateToken")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .uri("http://" + authServiceUrl + "/validateToken")
+                .header(HttpHeaders.AUTHORIZATION, token)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
                 .bodyToMono(CourseResponseWrapper.class)
@@ -49,8 +50,8 @@ public class AuthWebClientService {
      */
     public Mono<String> getUserIdByToken(String token) {
         return webClient.get()
-                .uri(authServiceUrl + "/getUserIdByToken")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .uri("http://" + authServiceUrl + "/getUserIdByToken")
+                .header(HttpHeaders.AUTHORIZATION, token)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
                 .bodyToMono(CourseResponseWrapper.class)

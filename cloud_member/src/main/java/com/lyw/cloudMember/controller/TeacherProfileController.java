@@ -1,5 +1,6 @@
 package com.lyw.cloudMember.controller;
 
+import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import com.lyw.commonUtil.controller.BaseController;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 教师信息表")
 @RestController
-@RequestMapping("TeacherProfile")
+@RequestMapping("teacherProfile")
 public class TeacherProfileController extends BaseController<TeacherProfileDto> {
 
     private final TeacherProfileBo service;
@@ -27,5 +28,14 @@ public class TeacherProfileController extends BaseController<TeacherProfileDto> 
     @Override
     public TeacherProfileBo getBaseService() {
         return service;
+    }
+
+    @PutMapping("/bindUser/{userId}")
+    public CourseResponseWrapper bindUser(@PathVariable Long userId, @RequestParam Long teacherId) {
+        return service.bindUser(userId, teacherId);
+    }
+    @PutMapping("/unbindUser/{userId}")
+    public CourseResponseWrapper unbindUser(@PathVariable Long userId, @RequestParam Long teacherId) {
+        return service.unbindUser(userId, teacherId);
     }
 }

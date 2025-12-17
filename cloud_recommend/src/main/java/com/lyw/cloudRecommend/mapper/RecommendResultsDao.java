@@ -2,7 +2,11 @@ package com.lyw.cloudRecommend.mapper;
 
 import com.lyw.cloudRecommend.vo.RecommendResultsVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.lyw.cloudRecommend.vo.UserCFVo;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +19,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface RecommendResultsDao extends BaseMapper<RecommendResultsVo> {
 
+    void insertOrUpdata(@Param("list") List<UserCFVo> list);
 }

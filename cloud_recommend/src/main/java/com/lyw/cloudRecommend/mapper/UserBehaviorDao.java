@@ -1,8 +1,11 @@
 package com.lyw.cloudRecommend.mapper;
 
-import com.lyw.cloudRecommend.vo.UserBehaviorVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.lyw.cloudRecommend.vo.UserBehaviorVo;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -14,5 +17,5 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface UserBehaviorDao extends BaseMapper<UserBehaviorVo> {
-
+    List<Long> selectCourseIds(@Param("userId") Long userId);
 }

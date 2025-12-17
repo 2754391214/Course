@@ -1,11 +1,10 @@
 package com.lyw.cloudRanking.service.impl;
 
-import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
-import com.lyw.cloudRanking.dto.CourseHeatDailyDto;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.cloudRanking.mapper.CourseHeatDailyDao;
-import com.lyw.commonUtil.service.BaseImpl;
-import org.springframework.stereotype.Service;
 import com.lyw.cloudRanking.service.CourseHeatDailyBo;
+import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
+import org.springframework.stereotype.Service;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -20,7 +19,7 @@ import java.util.List;
  * @since 2025/10/31
  */
 @Service
-public class CourseHeatDailyImpl extends BaseImpl<CourseHeatDailyDao, CourseHeatDailyVo, CourseHeatDailyDto> implements CourseHeatDailyBo {
+public class CourseHeatDailyImpl extends ServiceImpl<CourseHeatDailyDao, CourseHeatDailyVo> implements CourseHeatDailyBo {
     /**
      * 获取课程最近的热度数据
      */
@@ -137,16 +136,5 @@ public class CourseHeatDailyImpl extends BaseImpl<CourseHeatDailyDao, CourseHeat
      */
     private Date getDefaultStartDate() {
         return new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L);
-    }
-
-    /**
-     * 获取指定日期的排行榜快照
-     */
-    public List<CourseHeatDailyVo> getRankingSnapshot(String rankingCode, Date date) {
-        return lambdaQuery()
-                .eq(CourseHeatDailyVo::getRankingCode, rankingCode)
-                .eq(CourseHeatDailyVo::getHeatDate, date)
-                .orderByAsc(CourseHeatDailyVo::getDailyRank)
-                .list();
     }
 }

@@ -27,6 +27,12 @@ public class RedisKeyConstant {
     public static final String LOCK_SYNC_SAVE_LIKE = "lock:sync:save:like";
 
 
-    public static final String RANKING_COURSE_HEAT = "ranking:course_heat";
+    public static final String RANKING_COURSE_HEAT = "ranking:course:heat";
     public static final String COURSE_HEAT_WHO = "course:heat:%d";
+
+
+    public static final String LOCK_RECOMMEND_CF = "lock:userCF:%d:%d";
+
+    public static final String LOCK_RECOMMEND_STUDENT_PROFILE = "lock:studentProfile:%d";
+    public static final String LOCK_RECOMMEND_TEACHER_PROFILE = "lock:teacherProfile:%d";
 }

@@ -30,7 +30,7 @@ public class ReviewsDto extends BaseDto {
     private String title;
     
     @ApiModelProperty("总体评分，1-5分")
-    private BigDecimal overallRating;
+    private Integer overallRating;
     
     @ApiModelProperty("多维度评分，例如：{\"teaching\": 4.5, \"content\": 4.0, \"assessment\": 3.5}")
     private String dimensionRatings;

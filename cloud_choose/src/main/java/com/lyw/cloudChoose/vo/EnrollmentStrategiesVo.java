@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
@@ -22,7 +21,6 @@ import java.util.Date;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 @TableName("enrollment_strategies")
 public class EnrollmentStrategiesVo extends BaseVo {
 

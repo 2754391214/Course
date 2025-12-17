@@ -147,15 +147,14 @@ public class HeatCalculateServiceImpl implements HeatCalculateService {
      * 更新课程热度
      */
     public void updateCourseHeat(Long courseId, double increment) {
-        String heatKey = String.format("course:heat:%d", courseId);
-        String rankingKey = "ranking:course:heat";
+        String heatKey = String.format(RedisKeyConstant.COURSE_HEAT_WHO, courseId);
 
         try {
             // 使用原子操作更新热度值
             redisUtils.incrByFloat(heatKey, increment);
 
             // 异步更新排行榜
-            new Thread(() -> updateRankingAsync(courseId, heatKey, rankingKey)).start();
+            new Thread(() -> updateRankingAsync(courseId, heatKey, RedisKeyConstant.RANKING_COURSE_HEAT)).start();
 
             log.debug("更新课程热度: courseId={}, increment={}", courseId, increment);
 

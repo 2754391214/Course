@@ -12,6 +12,7 @@ import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.message.HeatEventMessage;
+import com.lyw.commonUtil.message.UserBehaviorMessage;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.DateTimeUtils;
@@ -123,11 +124,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
         // 使用 CompletableFuture 并行创建三个消息
         CompletableFuture<LocalMessageVo> incrementFuture = CompletableFuture.supplyAsync(() ->
-                createCourseIncrementMessage(course, currentDateTime, userId, "DECREMENT_ENROLLMENT")
+                createCourseIncrementMessage(course, currentDateTime, userId, CommonKeyConstant.DECREMENT_ENROLLMENT)
         );
 
         CompletableFuture<LocalMessageVo> behaviorFuture = CompletableFuture.supplyAsync(() ->
-                createBehaviorMessage(course, currentDateTime, userId,"DROP")
+                createBehaviorMessage(course, currentDateTime, userId,CommonKeyConstant.DROP)
         );
 
         // 等待所有任务完成
@@ -152,7 +153,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
         } catch (TimeoutException e) {
             log.error("创建消息超时: enrollmentId={}", enrollment.getId(), e);
-            return handleTimeoutFallback(course, currentDateTime, userId, "DECREMENT_ENROLLMENT");
+            return handleTimeoutFallback(course, currentDateTime, userId, CommonKeyConstant.DECREMENT_ENROLLMENT);
         } catch (Exception e) {
             log.error("创建消息失败: enrollmentId={}", enrollment.getId(), e);
             return handleDeleteFailure(enrollment, course, studentId, currentDateTime, userId);
@@ -203,7 +204,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
         // 使用 CompletableFuture 并行创建三个消息
         CompletableFuture<LocalMessageVo> incrementFuture = CompletableFuture.supplyAsync(() ->
-                createCourseIncrementMessage(course, currentDateTime, userId, "INCREMENT_ENROLLMENT")
+                createCourseIncrementMessage(course, currentDateTime, userId, CommonKeyConstant.INCREMENT_ENROLLMENT)
         );
 
         CompletableFuture<LocalMessageVo> heatFuture = CompletableFuture.supplyAsync(() ->
@@ -211,7 +212,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         );
 
         CompletableFuture<LocalMessageVo> behaviorFuture = CompletableFuture.supplyAsync(() ->
-                createBehaviorMessage(course, currentDateTime, userId,"ENROLL")
+                createBehaviorMessage(course, currentDateTime, userId,CommonKeyConstant.ENROLLMENT)
         );
 
         // 等待所有任务完成
@@ -237,7 +238,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
         } catch (TimeoutException e) {
             log.error("创建消息超时: enrollmentId={}", enrollment.getId(), e);
-            return handleTimeoutFallback(course, currentDateTime, userId, "INCREMENT_ENROLLMENT");
+            return handleTimeoutFallback(course, currentDateTime, userId, CommonKeyConstant.INCREMENT_ENROLLMENT);
         } catch (Exception e) {
             log.error("创建消息失败: enrollmentId={}", enrollment.getId(), e);
             return handleCreationFailure(enrollment, course, currentDateTime, userId);
@@ -292,13 +293,13 @@ public class EnrollmentServiceImpl implements EnrollmentService {
      * 创建用户行为消息
      */
     private LocalMessageVo createBehaviorMessage(CoursesDto course, String currentDateTime, String userId, String behaviorType) {
-        Map<String, Object> behaviorBody = new HashMap<>();
         String messageId = generateBusinessKey("behavior");
-        behaviorBody.put("courseId", course.getId());
-        behaviorBody.put("userId", userId);
-        behaviorBody.put("courseId", course.getId());
-        behaviorBody.put("behaviorTime", new Date());
-        behaviorBody.put("behaviorType", behaviorType);
+        UserBehaviorMessage behaviorBody = new UserBehaviorMessage();
+        behaviorBody.setMessageId(messageId);
+        behaviorBody.setCourseId(course.getId());
+        behaviorBody.setUserId(Long.valueOf(userId));
+        behaviorBody.setBehaviorType(behaviorType);
+        behaviorBody.setBehaviorTime(new Date());
         return localMessageService.createMessage(
                 LocalMessageVo.TYPE_COURSE_INCREMENT,
                 RabbitmqKeyConstant.USER_BEHAVIOR_ROUTING_KEY,
@@ -400,10 +401,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
      * 创建选课记录
      */
     private EnrollmentsVo createEnrollmentRecord(EnrollmentsDto request, CoursesDto course, Long studentId) {
-        EnrollmentsVo enrollmentsVo = new EnrollmentsVo()
-                .setStudentId(studentId)
-                .setCourseId(course.getId())
-                .setEnrollmentType(request.getEnrollmentType());
+        EnrollmentsVo enrollmentsVo = new EnrollmentsVo();
+        enrollmentsVo.setStudentId(studentId);
+        enrollmentsVo.setCourseId(course.getId());
+        enrollmentsVo.setEnrollmentType(request.getEnrollmentType());
         enrollmentsVo.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
         enrollmentsVo.setCruAndLuu(CurUserUtil.getUserId());
         return enrollmentsVo;

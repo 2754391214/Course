@@ -31,17 +31,17 @@ public class LoginController {
     }
 
     @PostMapping(value = "/logout")
-    public CourseResponseWrapper logout(HttpServletRequest request) {
-        return loginService.logout(request);
+    public CourseResponseWrapper logout(@RequestHeader("Authorization")String token) {
+        return loginService.logout(token);
     }
 
     @GetMapping(value = "/validateToken")
-    public CourseResponseWrapper validateToken(String token) {
+    public CourseResponseWrapper validateToken(@RequestHeader("Authorization")String token) {
         return loginService.validateToken(token);
     }
 
     @GetMapping(value = "/getUserIdByToken")
-    public CourseResponseWrapper getUserIdByToken(String token) {
+    public CourseResponseWrapper getUserIdByToken(@RequestHeader("Authorization")String token) {
         return loginService.getUserIdByToken(token);
     }
 

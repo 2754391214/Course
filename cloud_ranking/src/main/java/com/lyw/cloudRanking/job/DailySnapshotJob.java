@@ -3,10 +3,12 @@ package com.lyw.cloudRanking.job;
 import cn.hutool.core.collection.CollectionUtil;
 import com.lyw.cloudRanking.service.CourseHeatDailyBo;
 import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.DateTimeUtils;
 import com.lyw.commonUtil.util.RedisUtils;
+import com.lyw.commonUtil.util.TypeConversionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,16 +46,16 @@ public class DailySnapshotJob {
             int rank = 1;
 
             for (ZSetOperations.TypedTuple<Object> tuple : tuples) {
-                Long courseId = (Long) tuple.getValue();
+                Long courseId = TypeConversionUtil.toLong(tuple.getValue());
                 Double heatScore = tuple.getScore();
 
                 // 保存每日快照
-                CourseHeatDailyVo daily = new CourseHeatDailyVo()
-                        .setRankingCode("course_heat")
-                        .setCourseId(courseId)
-                        .setHeatDate(snapshotDate)
-                        .setTotalHeat(BigDecimal.valueOf(heatScore))
-                        .setDailyRank(rank);
+                CourseHeatDailyVo daily = new CourseHeatDailyVo();
+                daily.setRankingCode(CommonKeyConstant.COURSE_HEAT);
+                daily.setCourseId(courseId);
+                daily.setHeatDate(snapshotDate);
+                daily.setTotalHeat(BigDecimal.valueOf(heatScore));
+                daily.setDailyRank(rank);
                 daily.setCruAndLuu(CurUserUtil.getUserId());
                 daily.setCrdAndLud(DateTimeUtils.getCurrentDateTime());
 

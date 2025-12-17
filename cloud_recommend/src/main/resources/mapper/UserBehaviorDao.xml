@@ -4,4 +4,9 @@
 <mapper namespace="com.lyw.cloudRecommend.mapper.UserBehaviorDao">
 
 
+    <select id="selectCourseIds" resultType="java.lang.Long">
+        select distinct course_id
+        from user_behavior;
+        where user_id = #{userId}
+    </select>
 </mapper>

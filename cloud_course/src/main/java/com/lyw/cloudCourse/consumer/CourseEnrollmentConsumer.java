@@ -3,6 +3,7 @@ package com.lyw.cloudCourse.consumer;
 
 import com.lyw.cloudCourse.service.CoursesBo;
 import com.lyw.commonUtil.annotation.MessageIdempotent;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
 import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
 import com.lyw.commonUtil.message.EnrollmentMessage;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
@@ -40,7 +41,7 @@ public class CourseEnrollmentConsumer {
         try {
             log.info("收到选课消息: transactionId={}, courseId={}, operation={}", transactionId, message.getCourseId(), message.getOperation());
 
-            if ("INCREMENT_ENROLLMENT".equals(message.getOperation())) {
+            if (CommonKeyConstant.INCREMENT_ENROLLMENT.equals(message.getOperation())) {
                 // 调用课程服务增加选课人数
                 CourseResponseWrapper result = coursesService.incrementEnrollment(message.getCourseId());
 
@@ -54,7 +55,7 @@ public class CourseEnrollmentConsumer {
                     throw new RuntimeException("课程服务返回失败: " + result.getErrorMessage());
                 }
 
-            } else if ("DECREMENT_ENROLLMENT".equals(message.getOperation())) {
+            } else if (CommonKeyConstant.DECREMENT_ENROLLMENT.equals(message.getOperation())) {
                 // 退课 - 减少课程选课人数
                 CourseResponseWrapper result = coursesService.decrementEnrollment(message.getCourseId());
 

@@ -15,6 +15,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.commonUtil.util.BeanConverter;
+import com.lyw.commonUtil.util.CurUserUtil;
 import com.lyw.commonUtil.util.DateTimeUtils;
 import com.lyw.commonUtil.annotation.SelectOneOfField;
 import com.lyw.commonUtil.annotation.UniqueFieldValue;
@@ -96,8 +97,7 @@ public class BaseImpl<M extends BaseMapper<T>, T, D> extends ServiceImpl<M,T> im
                 Object lastUpdate = ReflectionKit.getFieldValue(entity,"lud");
 
                 String now = DateTimeUtils.parseLocalDateTime(LocalDateTime.now(), "yyyy-MM-dd HH:mm:ss.SSS");
-                //TODO:用户id应该存在分布式session中
-                String userCode = "admin";
+                String userId = CurUserUtil.getUserId();
                 List<Field> fieldList = ReflectionKit.getFieldList(ClassUtils.getUserClass(entity));
                 QueryWrapper<T> uniqueQueryWrapper = new QueryWrapper<T>();
                 List<String> exitName = new ArrayList<>();
@@ -150,7 +150,7 @@ public class BaseImpl<M extends BaseMapper<T>, T, D> extends ServiceImpl<M,T> im
                             }
                         }
                         if("luu".equals(fieldInfo.getProperty()) || "cru".equals(fieldInfo.getProperty())){
-                            field.set(entity,userCode);
+                            field.set(entity,userId);
                         }
                         if("lud".equals(fieldInfo.getProperty()) || "crd".equals(fieldInfo.getProperty())){
                             field.set(entity,now);
@@ -196,10 +196,9 @@ public class BaseImpl<M extends BaseMapper<T>, T, D> extends ServiceImpl<M,T> im
             //获取表名
             String tableName = tableInfo.getTableName();
             try{
-                Object lastUpdate = ReflectionKit.getFieldValue(entity,"lud");
+                Object lastUpdate = ReflectionKit.getFieldValue(dto,"lud");
                 String now = DateTimeUtils.parseLocalDateTime(LocalDateTime.now(), "yyyy-MM-dd HH:mm:ss.SSS");
-                //TODO:用户id应该存在分布式session中
-                String userCode = "admin";
+                String userId = CurUserUtil.getUserId();
                 List<Field> fieldList = ReflectionKit.getFieldList(ClassUtils.getUserClass(entity));
                 QueryWrapper<T> uniqueQueryWrapper = new QueryWrapper<T>();
                 List<String> exitName = new ArrayList<>();
@@ -245,7 +244,7 @@ public class BaseImpl<M extends BaseMapper<T>, T, D> extends ServiceImpl<M,T> im
                 }
 
                 setFieldValue(entity,"lud",now);
-                setFieldValue(entity,"luu",userCode);
+                setFieldValue(entity,"luu",userId);
                 //根据主键和lud更新数据表
                 if(baseMapper.update(entity, queryWrapper)!=1){
                     /*更新失败,事物回滚*/

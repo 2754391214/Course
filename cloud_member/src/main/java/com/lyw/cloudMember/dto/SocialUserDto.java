@@ -13,12 +13,9 @@ public class SocialUserDto implements Serializable {
     private String refresh_token;
     private String scope;
     private Long create_at;
-    //
     private String remind_in;
     private Long expires_in;
-
     private String uid;
-    //
     private String isRealName;
     private String id;
     private String name;

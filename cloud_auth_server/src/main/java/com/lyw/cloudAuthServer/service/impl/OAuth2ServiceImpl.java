@@ -8,15 +8,15 @@ import com.lyw.cloudAuthServer.service.OAuth2Service;
 import com.lyw.cloudAuthServer.utils.JwtTokenUtil;
 import com.lyw.commonUtil.constant.AuthServerConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
+import com.lyw.commonUtil.util.RedisUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -26,7 +26,7 @@ public class OAuth2ServiceImpl implements OAuth2Service {
     private MemberFeignService memberFeignService;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
+    private RedisUtils redisUtils;
 
     @Resource
     private JwtTokenUtil jwtTokenUtil;
@@ -153,16 +153,14 @@ public class OAuth2ServiceImpl implements OAuth2Service {
         String userKey = AuthServerConstant.LOGIN_USER_ID_PREFIX + userId;
 
         // 删除该用户之前的token（单点登录）
-        String oldToken = stringRedisTemplate.opsForValue().get(userKey);
+        String oldToken = redisUtils.get(userKey);
         if (StringUtils.isNotEmpty(oldToken)) {
-            stringRedisTemplate.delete(AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + oldToken);
+            redisUtils.delete(AuthServerConstant.LOGIN_USER_TOKEN_PREFIX + oldToken);
         }
 
         // 存储新的token
-        stringRedisTemplate.opsForValue().set(tokenKey, userId,
-                AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
-        stringRedisTemplate.opsForValue().set(userKey, token,
-                AuthServerConstant.LOGIN_TOKEN_EXPIRE, TimeUnit.SECONDS);
+        redisUtils.set(tokenKey, userId, Duration.ofSeconds(AuthServerConstant.LOGIN_TOKEN_EXPIRE));
+        redisUtils.set(userKey, token, Duration.ofSeconds(AuthServerConstant.LOGIN_TOKEN_EXPIRE));
     }
 
     /**

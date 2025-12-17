@@ -1,18 +1,12 @@
 package com.lyw.cloudMember.vo;
 
-import com.lyw.commonUtil.vo.BaseVo;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.activerecord.Model;
-import java.util.Date;
-import io.swagger.annotations.ApiModel;
+import com.lyw.commonUtil.vo.BaseVo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -23,7 +17,6 @@ import lombok.experimental.Accessors;
  * @since 2025/11/06
  */
 @Data
-@Accessors(chain = true)
 @TableName("user_preference")
 public class UserPreferenceVo extends BaseVo {
 

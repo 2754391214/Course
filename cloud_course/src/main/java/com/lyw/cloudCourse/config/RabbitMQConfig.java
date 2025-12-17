@@ -131,9 +131,9 @@ public class RabbitMQConfig {
         factory.setMessageConverter(jsonMessageConverter());
 
         // 并发配置 - 根据您的业务需求调整
-        factory.setConcurrentConsumers(50);
-        factory.setMaxConcurrentConsumers(200);
-        factory.setPrefetchCount(20); // 适当增加预取数量提高性能
+        factory.setConcurrentConsumers(5);
+        factory.setMaxConcurrentConsumers(20);
+        factory.setPrefetchCount(10); // 适当增加预取数量提高性能
 
         // 确认模式
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);

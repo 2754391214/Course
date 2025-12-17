@@ -20,12 +20,12 @@ public class LotteryStrategy implements EnrollmentStrategy {
     public CourseResponseWrapper enroll(EnrollmentsDto request, CoursesDto course, EnrollmentStrategiesVo strategy) {
         // 在抽签时间之前，所有申请都进入等待列表
         if (new Date().before(strategy.getLotteryTime())) {
-            WaitlistsVo waitlist = new WaitlistsVo()
-                    .setStudentId(request.getStudentId())
-                    .setCourseId(request.getCourseId())
-                    .setStatus("WAITING")
-                    .setJoinedAt(new Date())
-                    .setPriority(calculatePriority(request, strategy));
+            WaitlistsVo waitlist = new WaitlistsVo();
+            waitlist.setStudentId(request.getStudentId());
+            waitlist.setCourseId(request.getCourseId());
+            waitlist.setStatus("WAITING");
+            waitlist.setJoinedAt(new Date());
+            waitlist.setPriority(calculatePriority(request, strategy));
 
             return CourseResponseWrapper.getSuccess("已加入抽签等待列表", waitlist);
         }

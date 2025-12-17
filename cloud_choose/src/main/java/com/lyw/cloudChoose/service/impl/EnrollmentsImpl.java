@@ -1,14 +1,17 @@
 package com.lyw.cloudChoose.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lyw.cloudChoose.dto.CoursesDto;
 import com.lyw.cloudChoose.dto.EnrollmentsDto;
+import com.lyw.cloudChoose.dto.StudentProfileDto;
 import com.lyw.cloudChoose.dto.ValidationResult;
 import com.lyw.cloudChoose.factory.DropStrategyFactory;
 import com.lyw.cloudChoose.factory.EnrollmentStrategyFactory;
 import com.lyw.cloudChoose.feign.CourseFeignService;
+import com.lyw.cloudChoose.feign.MemberFeignService;
 import com.lyw.cloudChoose.mapper.EnrollmentStrategiesDao;
 import com.lyw.cloudChoose.mapper.EnrollmentsDao;
 import com.lyw.cloudChoose.service.EnrollmentValidationService;
@@ -27,11 +30,15 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -56,32 +63,25 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
     private Executor enrollmentExecutor;
     @Resource
     private DistributedCacheHelper distributedCacheHelper;
+    @Resource
+    private MemberFeignService memberFeignService;
 
     private EnrollmentStrategiesVo createDefaultStrategy(Long courseId) {
         // 创建默认的先到先得策略
-        return new EnrollmentStrategiesVo()
-                .setCourseId(courseId)
-                .setStrategyType("FIRST_COME")
-                .setDropStrategyType("IMMEDIATE_DROP")
-                .setAutoWaitlist(true)
-                .setAllowAudit(true)
-                .setConflictCheck(true)
-                .setPrerequisiteCheck(false);
+        EnrollmentStrategiesVo enrollmentStrategiesVo = new EnrollmentStrategiesVo();
+        enrollmentStrategiesVo.setCourseId(courseId);
+        enrollmentStrategiesVo.setStrategyType("FIRST_COME");
+        enrollmentStrategiesVo.setDropStrategyType("IMMEDIATE_DROP");
+        enrollmentStrategiesVo.setAutoWaitlist(true);
+        enrollmentStrategiesVo.setAllowAudit(true);
+        enrollmentStrategiesVo.setConflictCheck(true);
+        enrollmentStrategiesVo.setPrerequisiteCheck(false);
+        return enrollmentStrategiesVo;
     }
 
     // 课程信息缓存
     private CoursesDto getCachedCourse(Long courseId) {
-        return distributedCacheHelper.getOrLoad(
-                courseId.toString(),
-                new CacheConfig(
-                        RedisKeyConstant.COURSE_INFO,
-                        RedisKeyConstant.LOCK_COURSE_INFO,
-                        Duration.ofHours(24)
-                ),
-                () -> FeignResponseHelper.convert(
-                        courseFeignService.searchDetail(courseId), CoursesDto.class),
-                CoursesDto.class
-        );
+        return FeignResponseHelper.convert(courseFeignService.searchDetail(courseId), CoursesDto.class);
     }
 
     // 策略信息缓存
@@ -190,13 +190,44 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
     @Override
     public CourseResponseWrapper getStudentEnrollments(Long studentId, EnrollmentsDto dto) {
         try {
+            // 查询学生选课记录
             List<EnrollmentsVo> enrollments = enrollmentsDao.selectList(
                     new LambdaQueryWrapper<EnrollmentsVo>()
                             .eq(EnrollmentsVo::getStudentId, studentId));
 
+            if (CollectionUtil.isEmpty(enrollments)) {
+                return CourseResponseWrapper.getSuccess("查询成功，暂无选课记录", Collections.emptyList());
+            }
+
+            // 提取课程ID并去重
+            List<Long> courseIds = enrollments.stream()
+                    .map(EnrollmentsVo::getCourseId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 批量查询课程信息（避免N+1查询）
+            List<CoursesDto> courseBasicInfoDtos = FeignResponseHelper.convertToList(
+                    courseFeignService.searchBatchByIds(courseIds), CoursesDto.class);
+
+            if (CollectionUtil.isEmpty(courseBasicInfoDtos)) {
+                // 如果没有课程信息，返回空课程数据
+                enrollments.forEach(e -> e.setCourses(null));
+                return CourseResponseWrapper.getSuccess("查询成功，但部分课程信息缺失", enrollments);
+            }
+
+            // 使用Map优化查询效率：O(1)查找代替O(n^2)嵌套循环
+            Map<Long, CoursesDto> courseMap = courseBasicInfoDtos.stream()
+                    .collect(Collectors.toMap(CoursesDto::getId, Function.identity(), (v1, v2) -> v1));
+
+            // 设置课程信息到选课记录中
+            enrollments.forEach(enrollment -> {
+                CoursesDto courseDto = courseMap.get(enrollment.getCourseId());
+                enrollment.setCourses(courseDto);
+            });
+
             return CourseResponseWrapper.getSuccess("查询成功", enrollments);
         } catch (Exception e) {
-            log.error("查询学生选课列表异常: studentId={}", studentId, e);
+            log.error("查询学生选课列表异常: studentId={}, dto={}", studentId, dto, e);
             return CourseResponseWrapper.getFailed("系统异常，请稍后重试");
         }
     }
@@ -207,6 +238,27 @@ public class EnrollmentsImpl extends ServiceImpl<EnrollmentsDao, EnrollmentsVo> 
             List<EnrollmentsVo> enrollments = enrollmentsDao.selectList(
                     new LambdaQueryWrapper<EnrollmentsVo>()
                             .eq(EnrollmentsVo::getCourseId, courseId));
+            List<Long> studentIds = enrollments.
+                    stream()
+                    .map(item -> item.getStudentId())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            List<StudentProfileDto> studentBasicInfoDtos = FeignResponseHelper.convertToList(
+                    memberFeignService.searchBatchByIds(studentIds), StudentProfileDto.class);
+
+            if (CollectionUtil.isEmpty(studentBasicInfoDtos)) {
+                enrollments.forEach(e -> e.setStudentProfile(null));
+                return CourseResponseWrapper.getSuccess("查询成功，但部分学生信息缺失", enrollments);
+            }
+
+            Map<Long, StudentProfileDto> studentMap = studentBasicInfoDtos.stream()
+                    .collect(Collectors.toMap(StudentProfileDto::getId, Function.identity(), (v1, v2) -> v1));
+
+            enrollments.forEach(enrollment -> {
+                StudentProfileDto studentProfileDto = studentMap.get(enrollment.getCourseId());
+                enrollment.setStudentProfile(studentProfileDto);
+            });
 
             return CourseResponseWrapper.getSuccess("查询成功", enrollments);
         } catch (Exception e) {

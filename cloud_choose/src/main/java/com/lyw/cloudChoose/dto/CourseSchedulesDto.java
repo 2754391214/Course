@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.time.LocalTime;
 
@@ -17,7 +16,6 @@ import java.time.LocalTime;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class CourseSchedulesDto extends BaseDto {
 
     @ApiModelProperty("时间安排ID，主键自增")

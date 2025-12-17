@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -84,11 +85,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
      * 从请求头中提取token
      */
     private String extractToken(ServerHttpRequest request) {
-        List<String> headers = request.getHeaders().get("Authorization");
+        List<String> headers = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
         if (headers != null && !headers.isEmpty()) {
             String bearerToken = headers.get(0);
-            if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-                return bearerToken.substring(7);
+            if (bearerToken != null) {
+                return bearerToken;
             }
         }
         return null;

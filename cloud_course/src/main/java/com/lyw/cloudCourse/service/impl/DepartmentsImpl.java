@@ -28,6 +28,11 @@ public class DepartmentsImpl extends BaseImpl<DepartmentsDao, DepartmentsVo, Dep
     private CoursesDao coursesDao;
     @Override
     public CourseResponseWrapper getDepartmentCourses(Long departmentId, String semester) {
-        return CourseResponseWrapper.getSuccess(coursesDao.selectList(new LambdaQueryWrapper<CoursesVo>().eq(CoursesVo::getDepartmentId,departmentId).eq(CoursesVo::getSemester,semester)));
+        return CourseResponseWrapper.getSuccess(
+                coursesDao.selectList(
+                        new LambdaQueryWrapper<CoursesVo>()
+                                .eq(CoursesVo::getDepartmentId,departmentId)
+                                .eq(CoursesVo::getSemester,semester))
+        );
     }
 }

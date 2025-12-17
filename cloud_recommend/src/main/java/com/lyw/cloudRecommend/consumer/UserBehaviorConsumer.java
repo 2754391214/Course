@@ -1,8 +1,8 @@
 package com.lyw.cloudRecommend.consumer;
 
-import com.lyw.cloudRecommend.dto.UserBehaviorMessage;
 import com.lyw.cloudRecommend.service.RecommendService;
 import com.lyw.commonUtil.constant.RabbitmqKeyConstant;
+import com.lyw.commonUtil.message.UserBehaviorMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.handler.annotation.Payload;

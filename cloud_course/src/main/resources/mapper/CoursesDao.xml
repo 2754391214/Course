@@ -22,6 +22,8 @@
         <result column="tags" property="tags"/>
         <result column="status" property="status"/>
         <result column="metadata" property="metadata"/>
+        <result column="departmentsName" property="departmentsName"/>
+        <result column="courseCategoriesName" property="courseCategoriesName"/>
         <collection property="courseSchedules" ofType="com.lyw.cloudCourse.vo.CourseSchedulesVo">
             <id column="courseSchedulesId" property="id"/>
             <result column="course_id" property="courseId"/>
@@ -48,20 +50,6 @@
           AND enrolled_count <![CDATA[ < ]]> capacity
     </update>
 
-    <select id="selectPopularCourses" resultType="com.lyw.cloudCourse.vo.CoursesVo">
-        SELECT c.*, cs.hot_score
-        FROM courses c
-                 LEFT JOIN course_stats cs ON c.id = cs.course_id
-        <where>
-            c.status = 'PUBLISHED'
-            AND (c.semester = #{semester} OR #{semester} IS NULL)
-            <if test="departmentId != null">
-                AND c.department_id=#{departmentId}
-            </if>
-        </where>
-        ORDER BY cs.hot_score DESC
-            LIMIT #{limit};
-    </select>
     <select id="selectCategoryCourses" resultType="com.lyw.cloudCourse.vo.CoursesVo">
         SELECT c.*
         FROM courses c
@@ -78,9 +66,14 @@
                cs.end_time,
                cs.location,
                cs.schedule_type,
-               cs.metadata
+               cs.metadata,
+               d.name as departmentsName,
+               cc.name as courseCategoriesName
         from courses c
-                 LEFT JOIN course_schedules cs ON c.id = cs.course_id
+        LEFT JOIN course_schedules cs ON c.id = cs.course_id
+        LEFT JOIN departments d ON c.department_id = d.id AND d.status='Y'
+        LEFT JOIN course_category_relations ccr ON ccr.course_id = c.id
+        LEFT JOIN course_categories cc ON cc.id = ccr.category_id
         WHERE c.id = #{id}
     </select>
 </mapper>

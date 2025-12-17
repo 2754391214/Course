@@ -4,4 +4,12 @@
 <mapper namespace="com.lyw.cloudRecommend.mapper.RecommendResultsDao">
 
 
+    <insert id="insertOrUpdata">
+        INSERT INTO recommend_results (user_id, recommend_type, course_ids, cru, crd, luu, lud)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.userId}, #{item.recommendType}, #{item.courseIds}, #{item.cru}, #{item.crd}, #{item.luu} #{item.lud})
+        </foreach>
+        ON DUPLICATE KEY UPDATE user_id=VALUES(courseId);
+    </insert>
 </mapper>

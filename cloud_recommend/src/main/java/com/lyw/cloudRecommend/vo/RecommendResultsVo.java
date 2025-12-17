@@ -34,26 +34,8 @@ public class RecommendResultsVo extends BaseVo {
     @TableField(value = "user_id")
     private Long userId;
 
-    @ApiModelProperty("推荐类型: HOME_PAGE, COURSE_DETAIL, PERSONALIZED")
-    @TableField(value = "recommend_type")
-    private String recommendType;
-
     @ApiModelProperty("推荐课程ID列表")
     @TableField(value = "course_ids")
     private String courseIds;
-
-    @ApiModelProperty("推荐分数")
-    @TableField(value = "scores")
-    private String scores;
-
-    @ApiModelProperty("使用的策略")
-    @TableField(value = "strategy_used")
-    private String strategyUsed;
-
-    @ApiModelProperty("过期时间")
-    @TableField(value = "expire_time")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
-    private Date expireTime;
 
 }

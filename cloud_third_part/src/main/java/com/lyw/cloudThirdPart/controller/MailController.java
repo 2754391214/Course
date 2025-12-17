@@ -11,17 +11,20 @@ import javax.annotation.Resource;
 import java.util.List;
 
 @Slf4j
-@RestController("mail")
+@RestController
+@RequestMapping("mail")
 public class MailController {
     @Resource
     private MailService mailService;
-    //发送普通文本邮件
     @ThirdPartyProtect(
             service = ThirdPartyProtect.ServiceType.EMAIL,
             count = 20,
             timeWindow = 300000,
             sensitivity = ThirdPartyProtect.CostSensitivity.MEDIUM
     )
+    /**
+     * 发送普通文本邮件
+     */
     @PostMapping("/sendSimpleEmail")
     public CourseResponseWrapper sendSimpleMail(@RequestBody EmailDto dto) {
         return mailService.sendSimpleEmail(dto);
@@ -32,6 +35,9 @@ public class MailController {
             timeWindow = 300000,
             sensitivity = ThirdPartyProtect.CostSensitivity.MEDIUM
     )
+    /**
+     * 发送批量普通文本邮件
+     */
     @PostMapping("/sendSimpleEmailList")
     public CourseResponseWrapper sendSimpleEmailList(@RequestBody List<EmailDto> dto) {
         return mailService.sendSimpleEmailList(dto);

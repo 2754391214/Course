@@ -8,9 +8,11 @@ import com.lyw.cloudRanking.service.CourseHeatDailyBo;
 import com.lyw.cloudRanking.service.RankingQueryService;
 import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
 import com.lyw.commonUtil.constant.RedisKeyConstant;
+import com.lyw.commonUtil.dto.CourseBasicInfoDto;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import com.lyw.commonUtil.util.FeignResponseHelper;
 import com.lyw.commonUtil.util.RedisUtils;
+import com.lyw.commonUtil.util.TypeConversionUtil;
 import com.lyw.commonUtil.util.reidsCache.StringCache.CacheConfig;
 import com.lyw.commonUtil.util.reidsCache.StringCache.DistributedCacheHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +22,6 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,25 +40,24 @@ public class RankingQueryServiceImpl implements RankingQueryService {
     @Resource
     private DistributedCacheHelper distributedCacheHelper;
     /**
-     * 获取实时排行榜
+     * 获取课程实时排行榜
      */
     @Override
-    public CourseResponseWrapper getRealTimeRanking(String rankingCode, int page, int size) {
+    public CourseResponseWrapper getCourseRanking(int page, int size) {
         try {
             int start = (page - 1) * size;
             int end = start + size - 1;
             Set<ZSetOperations.TypedTuple<Object>> tuples = redisUtils.reverseRangeWithScores(RedisKeyConstant.RANKING_COURSE_HEAT, start, end);
             if (CollectionUtil.isEmpty(tuples)) {
-                return CourseResponseWrapper.getFailed("没有查询到排行榜数据");
+                return CourseResponseWrapper.getFailed("没有查询到课程热度排行榜数据");
             }
 
             List<RankingItemDto> ranking = new ArrayList<>();
             int rank = start + 1;
 
             for (ZSetOperations.TypedTuple<Object> tuple : tuples) {
-                Long courseId = (Long) tuple.getValue();
+                Long courseId = TypeConversionUtil.toLong(tuple.getValue());
                 Double heatScore = tuple.getScore();
-
                 ranking.add(RankingItemDto.builder()
                         .courseId(courseId)
                         .heatScore(heatScore)
@@ -69,44 +69,15 @@ public class RankingQueryServiceImpl implements RankingQueryService {
             return CourseResponseWrapper.getSuccess(ranking);
 
         } catch (Exception e) {
-            log.error("获取实时排行榜失败: {}", rankingCode, e);
-            return CourseResponseWrapper.getFailed("获取实时排行榜失败");
-        }
-    }
-
-    /**
-     * 获取课程排行榜详情
-     */
-    public CourseResponseWrapper getCourseRankingDetail(String rankingCode, Long courseId) {
-        String heatKey = String.format(RedisKeyConstant.COURSE_HEAT_WHO, courseId);
-
-        try {
-            // 获取当前排名
-            Long rank = redisUtils.zReverseRank(RedisKeyConstant.RANKING_COURSE_HEAT, courseId.toString());
-            Double heatScore = redisUtils.get(heatKey);
-
-            if (ObjectUtil.isEmpty(rank) || ObjectUtil.isEmpty(heatScore)) {
-                return CourseResponseWrapper.getFailed("课程不在排行榜中");
-            }
-
-            return CourseResponseWrapper.getSuccess(CourseRankingDetailDto.builder()
-                    .courseId(courseId)
-                    .rankingCode(rankingCode)
-                    .heatScore(heatScore)
-                    .currentRank(rank.intValue() + 1) // 转为1-based排名
-                    .courseInfo(getCourseCacheInfo(courseId))
-                    .build());
-
-        } catch (Exception e) {
-            log.error("获取课程排行榜详情失败: courseId={}", courseId, e);
-            return null;
+            log.error("获取课程实时排行榜失败: {}", e);
+            return CourseResponseWrapper.getFailed("获取课程实时排行榜失败");
         }
     }
 
     /**
      * 获取课程热度趋势
      */
-    public CourseResponseWrapper getCourseHeatTrend(String rankingCode, Long courseId, String period) {
+    public CourseResponseWrapper getCourseHeatTrend(Long courseId, String period) {
         // 从数据库查询历史数据
         List<CourseHeatDailyVo> dailyData = courseHeatDailyBo.getRecentHeatData(courseId, period);
 
@@ -123,24 +94,6 @@ public class RankingQueryServiceImpl implements RankingQueryService {
                 .period(period)
                 .dataPoints(dataPoints)
                 .build());
-    }
-
-    /**
-     * 搜索排行榜课程
-     */
-    public CourseResponseWrapper searchRanking(String rankingCode, String keyword, int page, int size) {
-        // 先获取整个排行榜，然后过滤
-        List<RankingItemDto> allRanking = FeignResponseHelper.convertToList(getRealTimeRanking(rankingCode, 1, 1000),RankingItemDto.class);
-        return CourseResponseWrapper.getSuccess(allRanking.stream()
-                .filter(item -> matchesKeyword(item, keyword))
-                .skip((page - 1) * size)
-                .limit(size)
-                .collect(Collectors.toList()));
-    }
-
-    private boolean matchesKeyword(RankingItemDto item, String keyword) {
-        return item.getCourseInfo() != null &&
-                item.getCourseInfo().getCourseName().toLowerCase().contains(keyword.toLowerCase());
     }
 
 

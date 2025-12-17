@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-import lombok.experimental.Accessors;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
@@ -19,14 +18,19 @@ import java.util.Date;
  * @since 2025/11/06
  */
 @Data
-@Accessors(chain = true)
 public class StudentProfileDto extends BaseDto {
 
     private Long id;
     
     @ApiModelProperty("用户ID")
     private Long userId;
-    
+
+    @ApiModelProperty("姓名")
+    private String name;
+
+    @ApiModelProperty("相片")
+    private String avatar;
+
     @ApiModelProperty("学号")
     private String studentId;
     
@@ -40,13 +44,13 @@ public class StudentProfileDto extends BaseDto {
     private String faculty;
     
     @ApiModelProperty("入学年份")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
+    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @JsonFormat(pattern = "dd/MM/yyyy", timezone = "GMT+8")
     private Date enrollmentYear;
     
     @ApiModelProperty("预计毕业年份")
-    @DateTimeFormat(pattern = "dd-MM-yyyy HH:mm:ss")
-    @JsonFormat(pattern = "dd/MM/yyyy HH:mm:ss", timezone = "GMT+8")
+    @DateTimeFormat(pattern = "dd-MM-yyyy")
+    @JsonFormat(pattern = "dd/MM/yyyy", timezone = "GMT+8")
     private Date expectedGraduation;
     
     @ApiModelProperty("绩点")

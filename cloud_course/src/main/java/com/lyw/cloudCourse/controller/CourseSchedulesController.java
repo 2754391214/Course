@@ -32,15 +32,10 @@ public class CourseSchedulesController extends BaseController<CourseSchedulesDto
     }
 
     /**
-     * 检查课程时间是否冲突
+     * 批量获取课程课程时间安排
+     * @param courseIds
+     * @return
      */
-    @GetMapping("/{courseId}/checkTime-conflict")
-    public CourseResponseWrapper checkTimeConflict(@PathVariable("courseId") Long courseId,
-                                                   @RequestParam("studentId") Long studentId,
-                                                   @RequestParam("enrolledCourseIds") List<Long> enrolledCourseIds){
-        return service.checkTimeConflict(courseId,studentId,enrolledCourseIds);
-    }
-
     @GetMapping("/batchGetCourseSchedules")
     CourseResponseWrapper batchGetCourseSchedules(@RequestParam("courseIds") List<Long> courseIds){
         return service.batchGetCourseSchedules(courseIds);

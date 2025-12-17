@@ -5,18 +5,31 @@ import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.lyw.cloudCourse.dto.BatchUpdateResponseDto;
 import com.lyw.cloudCourse.dto.CoursesDto;
+import com.lyw.cloudCourse.dto.TeacherProfileDto;
+import com.lyw.cloudCourse.dto.UserDto;
+import com.lyw.cloudCourse.feign.InteractionFeignService;
+import com.lyw.cloudCourse.feign.MemberFeignService;
 import com.lyw.cloudCourse.mapper.CoursesDao;
 import com.lyw.cloudCourse.service.CoursesBo;
 import com.lyw.cloudCourse.vo.CoursesVo;
+import com.lyw.commonUtil.constant.CommonKeyConstant;
+import com.lyw.commonUtil.constant.RedisKeyConstant;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import com.lyw.commonUtil.service.BaseImpl;
+import com.lyw.commonUtil.util.CurUserUtil;
+import com.lyw.commonUtil.util.FeignResponseHelper;
+import com.lyw.commonUtil.util.reidsCache.StringCache.CacheConfig;
+import com.lyw.commonUtil.util.reidsCache.StringCache.DistributedCacheHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -31,15 +44,69 @@ import java.util.List;
 public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> implements CoursesBo {
     @Resource
     private CoursesDao coursesDao;
-    @Override
-    public CourseResponseWrapper findById(Long id){
-        return CourseResponseWrapper.getSuccess(baseMapper.selectAllDataById(id));
+    @Resource
+    private InteractionFeignService interactionFeignService;
+    @Resource
+    private MemberFeignService memberFeignService;
+    @Resource
+    private DistributedCacheHelper distributedCacheHelper;
+    private CoursesVo getCachedCourse(Long courseId) {
+        return distributedCacheHelper.getOrLoad(
+                courseId.toString(),
+                new CacheConfig(
+                        RedisKeyConstant.COURSE_INFO,
+                        RedisKeyConstant.LOCK_COURSE_INFO,
+                        Duration.ofHours(24)
+                ),
+                () -> {
+                    CoursesVo coursesVo = baseMapper.selectAllDataById(courseId);
+                    if (ObjectUtil.isEmpty(coursesVo)) {
+                        return null;
+                    }
+                    Long userId = Long.valueOf(CurUserUtil.getUserId());
+                    if (ObjectUtil.isEmpty(userId)) {
+                        // 未登录用户
+                        coursesVo.setIsFavorited(false);
+                        coursesVo.setIsLiked(false);
+                        coursesVo.setFavoritedCount(0);
+                        coursesVo.setLikedCount(0);
+                    } else {
+                        try {
+                            Map<String, Object> status = FeignResponseHelper.convertSafe(interactionFeignService.getFavoriteStatus(CommonKeyConstant.COURSE, courseId, userId), Map.class);
+                            coursesVo.setIsFavorited(getBoolean(status.get("isFavorited"), false));
+                            coursesVo.setFavoritedCount(getInteger(status.get("favoritedCount"), 0));
+                            coursesVo.setIsLiked(getBoolean(status.get("isLiked"), false));
+                            coursesVo.setLikedCount(getInteger(status.get("likedCount"), 0));
+                            TeacherProfileDto teacherProfileDto = FeignResponseHelper.convertSafe(memberFeignService.searchDetail(coursesVo.getTeacherId()), TeacherProfileDto.class);
+                            if(ObjectUtil.isNotEmpty(teacherProfileDto)){
+                                coursesVo.setTeacherName(teacherProfileDto.getName());
+                                coursesVo.setTeacherAvatat(teacherProfileDto.getAvatar());
+                            }
+                        }catch (Exception e) {
+                            log.error("远程异常:{}", e);
+                        }
+                    }
+                    return coursesVo;
+                },
+                CoursesVo.class
+        );
     }
     @Override
-    public CourseResponseWrapper getPopularCourses(Integer limit, String semester) {
-        return CourseResponseWrapper.getSuccess(coursesDao.selectPopularCourses(limit,semester,null));
+    public CourseResponseWrapper findById(Long id) {
+        if (ObjectUtil.isEmpty(id)) {
+            return CourseResponseWrapper.getFailed("参数错误");
+        }
+        return CourseResponseWrapper.getSuccess(getCachedCourse(id));
     }
 
+    // 工具方法
+    private Boolean getBoolean(Object value, Boolean defaultValue) {
+        return value instanceof Boolean ? (Boolean) value : defaultValue;
+    }
+
+    private Integer getInteger(Object value, Integer defaultValue) {
+        return value instanceof Number ? ((Number) value).intValue() : defaultValue;
+    }
     @Override
     public CourseResponseWrapper getTeacherCourses(Long teacherId, String semester) {
         return CourseResponseWrapper.getSuccess(coursesDao.selectList(new LambdaQueryWrapper<CoursesVo>().eq(CoursesVo::getTeacherId,teacherId).eq(CoursesVo::getSemester,semester)));
@@ -72,7 +139,7 @@ public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> imp
 
             // 返回更新后的课程信息
             CoursesVo updatedCourse = coursesDao.selectById(courseId);
-            return CourseResponseWrapper.getSuccess("减少选课人数成功", updatedCourse);
+            return CourseResponseWrapper.getSuccess("增加选课人数成功", updatedCourse);
 
         } catch (Exception e) {
             log.error("增加课程选课人数异常: courseId={}", courseId, e);
@@ -200,5 +267,10 @@ public class CoursesImpl extends BaseImpl<CoursesDao, CoursesVo, CoursesDto> imp
             log.error("批量更新课程容量异常", e);
             return CourseResponseWrapper.getFailed("批量更新失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public CourseResponseWrapper searchBatchByIds(List<Long> courseIds) {
+        return CourseResponseWrapper.getSuccess(baseMapper.selectBatchIds(courseIds));
     }
 }

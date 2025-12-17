@@ -2,6 +2,7 @@ package com.lyw.cloudMember.service;
 
 import com.lyw.cloudMember.vo.UserPreferenceVo;
 import com.lyw.cloudMember.dto.UserPreferenceDto;
+import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import com.lyw.commonUtil.service.BaseBo;
 
 /**
@@ -14,4 +15,5 @@ import com.lyw.commonUtil.service.BaseBo;
  */
 public interface UserPreferenceBo extends BaseBo<UserPreferenceVo,UserPreferenceDto> {
 
+    CourseResponseWrapper findDetailByUser(Long userId);
 }

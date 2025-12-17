@@ -7,8 +7,8 @@ import com.lyw.commonUtil.controller.BaseController;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * <p>
@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
  */
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Api(tags = "REST - 选课黑名单表")
-@Controller
-@RequestMapping("/enrollmentBlacklist")
+@RestController
+@RequestMapping("enrollmentBlacklist")
 public class EnrollmentBlacklistController extends BaseController<EnrollmentBlacklistDto> {
     private final EnrollmentBlacklistBo service;
 

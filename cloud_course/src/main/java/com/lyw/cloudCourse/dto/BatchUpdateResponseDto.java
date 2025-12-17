@@ -2,7 +2,6 @@ package com.lyw.cloudCourse.dto;
 
 import com.lyw.cloudCourse.vo.CoursesVo;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 import java.util.List;
 
@@ -10,7 +9,6 @@ import java.util.List;
  * 批量更新单个结果类
  */
 @Data
-@Accessors(chain = true)
 public class BatchUpdateResponseDto {
     private Integer totalCount;
     private Integer successCount;

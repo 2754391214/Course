@@ -12,6 +12,7 @@ import com.lyw.cloudInteraction.mapper.ReviewRepliesDao;
 import com.lyw.cloudInteraction.mapper.ReviewsDao;
 import com.lyw.cloudInteraction.service.HeatEventPublisher;
 import com.lyw.cloudInteraction.service.ReviewsBo;
+import com.lyw.cloudInteraction.service.UserBehaviorPublisher;
 import com.lyw.cloudInteraction.vo.ReviewRepliesVo;
 import com.lyw.cloudInteraction.vo.ReviewsVo;
 import com.lyw.commonUtil.constant.CommonKeyConstant;
@@ -46,6 +47,8 @@ public class ReviewsImpl extends ServiceImpl<ReviewsDao, ReviewsVo> implements R
     private ReviewRepliesDao reviewRepliesDao;
     @Resource
     private HeatEventPublisher heatEventPublisher;
+    @Resource
+    private UserBehaviorPublisher userBehaviorPublisher;
     @Override
     public CourseResponseWrapper getReviewsByCourseId(ReviewsDto dto) {
         Long courseId = dto.getCourseId();
@@ -131,10 +134,12 @@ public class ReviewsImpl extends ServiceImpl<ReviewsDao, ReviewsVo> implements R
     @Transactional(rollbackFor = Exception.class)
     public CourseResponseWrapper submitReview(ReviewsDto dto) {
         try {
+            Long courseId = dto.getCourseId();
+            Long userId = dto.getStudentId();
             // 检查学生是否已经评价过该课程
             LambdaQueryWrapper<ReviewsVo> checkWrapper = new LambdaQueryWrapper<ReviewsVo>()
-                    .eq(ReviewsVo::getCourseId, dto.getCourseId())
-                    .eq(ReviewsVo::getStudentId, dto.getStudentId());
+                    .eq(ReviewsVo::getCourseId, courseId)
+                    .eq(ReviewsVo::getStudentId, userId);
 
             long existingCount = baseMapper.selectCount(checkWrapper);
             if (existingCount > 0) {
@@ -142,8 +147,7 @@ public class ReviewsImpl extends ServiceImpl<ReviewsDao, ReviewsVo> implements R
             }
 
             // 验证评分范围
-            if (dto.getOverallRating().compareTo(BigDecimal.ONE) < 0 ||
-                    dto.getOverallRating().compareTo(new BigDecimal("5")) > 0) {
+            if (dto.getOverallRating() < 0 || dto.getOverallRating() > 5) {
                 return CourseResponseWrapper.getFailed("评分必须在1-5分之间");
             }
 
@@ -161,9 +165,8 @@ public class ReviewsImpl extends ServiceImpl<ReviewsDao, ReviewsVo> implements R
 
             int result = baseMapper.insert(reviewsVo);
             if (result > 0) {
-
-                heatEventPublisher.publishEvent(CommonKeyConstant.COMMENT,dto.getCourseId(),CommonKeyConstant.COMMENT,reviewsVo.getRating());
-
+                heatEventPublisher.publishEvent(CommonKeyConstant.COMMENT, courseId,CommonKeyConstant.COMMENT,reviewsVo.getRating());
+                userBehaviorPublisher.sendUserBehavior(userId, courseId, CommonKeyConstant.COMMENT);
                 return CourseResponseWrapper.getSuccess("评价提交成功，等待审核");
             } else {
                 return CourseResponseWrapper.getFailed("评价提交失败");

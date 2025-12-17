@@ -16,39 +16,20 @@ public class RankingApiController {
 
     private final RankingQueryService rankingQueryService;
 
-    @ApiOperation("获取实时排行榜")
-    @GetMapping
-    public CourseResponseWrapper getRanking(
-            @PathVariable String rankingCode,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size) {
-        return rankingQueryService.getRealTimeRanking(rankingCode, page, size);
-    }
-
-    @ApiOperation("获取课程排行榜详情")
-    @GetMapping("/{rankingCode}/course/{courseId}")
-    public CourseResponseWrapper getCourseRankingDetail(
-            @PathVariable String rankingCode,
-            @PathVariable Long courseId) {
-        return rankingQueryService.getCourseRankingDetail(rankingCode, courseId);
+    @ApiOperation("获取课程实时排行榜")
+    @GetMapping("/course")
+    public CourseResponseWrapper getCourseRanking(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "20") Integer size) {
+        return rankingQueryService.getCourseRanking(page, size);
     }
 
     @ApiOperation("获取课程热度趋势")
-    @GetMapping("/{rankingCode}/course/{courseId}/trend")
+    @GetMapping("/course/{courseId}/trend")
     public CourseResponseWrapper getCourseHeatTrend(
-            @PathVariable String rankingCode,
             @PathVariable Long courseId,
-            @RequestParam(defaultValue = "7d") String period) {
-        return rankingQueryService.getCourseHeatTrend(rankingCode, courseId, period);
+            @RequestParam(value = "period",defaultValue = "7d") String period) {
+        return rankingQueryService.getCourseHeatTrend(courseId, period);
     }
 
-    @ApiOperation("搜索排行榜课程")
-    @GetMapping("/{rankingCode}/search")
-    public CourseResponseWrapper searchRanking(
-            @PathVariable String rankingCode,
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
-        return rankingQueryService.searchRanking(rankingCode, keyword, page, size);
-    }
 }

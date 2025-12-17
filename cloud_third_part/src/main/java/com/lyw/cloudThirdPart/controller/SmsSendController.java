@@ -16,7 +16,7 @@ public class SmsSendController {
     @Resource
     private SmsSendService smsSendService;
     /**
-     * 提供给别的服务进行调用
+     * 发送短信
      */
     @ThirdPartyProtect(
             service = ThirdPartyProtect.ServiceType.SMS,

@@ -23,7 +23,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/31
  */
 @Data
-@Accessors(chain = true)
 @TableName("ranking_config")
 public class RankingConfigVo extends BaseVo {
 

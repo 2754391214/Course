@@ -1,10 +1,8 @@
 package com.lyw.cloudRanking.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.lyw.cloudRanking.vo.CourseHeatDailyVo;
-import com.lyw.cloudRanking.dto.CourseHeatDailyDto;
-import com.lyw.commonUtil.service.BaseBo;
 
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -15,7 +13,6 @@ import java.util.List;
  * @author lyw
  * @since 2025/10/31
  */
-public interface CourseHeatDailyBo extends BaseBo<CourseHeatDailyVo,CourseHeatDailyDto> {
+public interface CourseHeatDailyBo extends IService<CourseHeatDailyVo> {
     List<CourseHeatDailyVo> getRecentHeatData(Long courseId, String period);
-    List<CourseHeatDailyVo> getRankingSnapshot(String rankingCode, Date date);
 }

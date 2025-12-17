@@ -1,7 +1,6 @@
 package com.lyw.cloudCourse.controller;
 
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
-import com.lyw.commonUtil.util.CurUserUtil;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +34,7 @@ public class CourseCategoriesController extends BaseController<CourseCategoriesD
      * 获取分类下的课程
      */
     @GetMapping("/{categoryId}/courses")
-    public CourseResponseWrapper getCategoryCourses(
-            @PathVariable Long categoryId,
-            CourseCategoriesDto dto) {
+    public CourseResponseWrapper getCategoryCourses(@PathVariable Long categoryId, CourseCategoriesDto dto) {
         return service.getCategoryCourses(categoryId, dto);
     }
 }

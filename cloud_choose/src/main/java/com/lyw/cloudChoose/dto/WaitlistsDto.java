@@ -1,12 +1,12 @@
 package com.lyw.cloudChoose.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
-import java.util.Date;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.experimental.Accessors;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.util.Date;
 
 /**
  * <p>
@@ -17,7 +17,6 @@ import lombok.experimental.Accessors;
  * @since 2025/10/22
  */
 @Data
-@Accessors(chain = true)
 public class WaitlistsDto extends BaseDto {
 
 @ApiModelProperty("主键ID")

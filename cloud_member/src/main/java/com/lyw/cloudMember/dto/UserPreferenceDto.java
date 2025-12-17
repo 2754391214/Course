@@ -2,11 +2,7 @@ package com.lyw.cloudMember.dto;
 
 import com.lyw.commonUtil.dto.BaseDto;
 import io.swagger.annotations.ApiModelProperty;
-import java.util.Date;
-import org.springframework.format.annotation.DateTimeFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -17,7 +13,6 @@ import lombok.experimental.Accessors;
  * @since 2025/11/06
  */
 @Data
-@Accessors(chain = true)
 public class UserPreferenceDto extends BaseDto {
 
     private Long id;

@@ -1,6 +1,5 @@
 package com.lyw.cloudCourse.controller;
 
-import com.lyw.cloudCourse.dto.CourseSchedulesDto;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import io.swagger.annotations.Api;
 import lombok.RequiredArgsConstructor;
@@ -31,20 +30,6 @@ public class CoursesController extends BaseController<CoursesDto> {
     @Override
     public CoursesBo getBaseService() {
         return service;
-    }
-
-    @GetMapping("/{id}")
-    public CourseResponseWrapper searchDetail(@PathVariable Long id){
-        return service.findById(id);
-    }
-    /**
-     * 获取热门课程
-     */
-    @GetMapping("/popular")
-    public CourseResponseWrapper getPopularCourses(
-            @RequestParam(defaultValue = "10") Integer limit,
-            @RequestParam(required = false) String semester) {
-        return service.getPopularCourses(limit, semester);
     }
 
     /**
@@ -80,5 +65,13 @@ public class CoursesController extends BaseController<CoursesDto> {
     @PutMapping("/batch-update-capacity")
     public CourseResponseWrapper batchUpdateCapacity(@RequestBody List<CoursesDto> updates) {
         return service.batchUpdateCapacity(updates);
+    }
+
+    /**
+     * 批量获取课程列表
+     */
+    @GetMapping("/batchGet")
+    CourseResponseWrapper searchBatchByIds(@RequestParam("courseIds")List<Long> courseIds){
+        return service.searchBatchByIds(courseIds);
     }
 }

@@ -4,6 +4,7 @@ import com.lyw.cloudThirdPart.aspect.ThirdPartyProtect;
 import com.lyw.cloudThirdPart.service.OssService;
 import com.lyw.commonUtil.responseWrapper.CourseResponseWrapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,7 +13,8 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 
 @Slf4j
-@RestController("oss")
+@RestController
+@RequestMapping("oss")
 public class OssController {
 
     @Resource
@@ -23,7 +25,10 @@ public class OssController {
             timeWindow = 60000,
             sensitivity = ThirdPartyProtect.CostSensitivity.LOW
     )
-    @RequestMapping("/oss/policy")
+    /**
+     * 获取临时oss凭证给前端
+     */
+    @GetMapping("/policy")
     public CourseResponseWrapper policy() {
         return ossService.policy();
     }
@@ -34,7 +39,10 @@ public class OssController {
             timeWindow = 60000,
             sensitivity = ThirdPartyProtect.CostSensitivity.LOW
     )
-    @PostMapping("/oss/upload")
+    /**
+     * 上传oss
+     */
+    @PostMapping("/upload")
     public CourseResponseWrapper upload(MultipartFile file) {
         return ossService.upload(file);
     }
